@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.env
+.DS_Store
+
+# Prevent sending database to GitHub (cloud should start fresh, or use its own persistent disk)
+backend/postman_clone.db
+tunnel.log
+server.log

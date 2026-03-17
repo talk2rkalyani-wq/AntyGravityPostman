@@ -1,0 +1,179 @@
+const express = require('express');
+const cors = require('cors');
+const axios = require('axios');
+const path = require('path');
+const db = require('./db');
+
+const app = express();
+const PORT = process.env.PORT || 5001;
+
+app.use(cors());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// Initialize SQLite DB
+db.initDb();
+
+// Add global middleware to bypass localtunnel reminder page for static assets
+app.use((req, res, next) => {
+  res.setHeader('Bypass-Tunnel-Reminder', 'true');
+  next();
+});
+
+// Serve static frontend files
+app.use(express.static(path.join(__dirname, '../frontend/dist')));
+
+// --- Proxy Endpoint ---
+app.post('/api/proxy', async (req, res) => {
+  const { url, method, headers, auth, data } = req.body;
+
+  if (!url || !method) {
+    return res.status(400).json({ error: 'URL and Method are required.' });
+  }
+
+  // Construct Axios config
+  const axiosConfig = {
+    url,
+    method,
+    headers: headers || {},
+    data: data || undefined,
+    validateStatus: () => true, // Don't throw errors for non-2xx status codes
+  };
+
+  // Optional: Handle Auth (Basic, Bearer, etc.) if provided separately from headers
+  if (auth && auth.type) {
+    if (auth.type === 'bearer' && auth.token) {
+      axiosConfig.headers['Authorization'] = `Bearer ${auth.token}`;
+    } else if (auth.type === 'basic' && auth.username && auth.password) {
+      axiosConfig.auth = {
+        username: auth.username,
+        password: auth.password
+      };
+    }
+  }
+
+  const startTime = Date.now();
+
+  try {
+    const response = await axios(axiosConfig);
+    const endTime = Date.now();
+    
+    // Save to History (Fire and forget)
+    db.saveHistory({
+      url,
+      method,
+      status: response.status,
+      time: endTime - startTime
+    });
+
+    // Send response back to frontend
+    res.status(response.status).json({
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers,
+      data: response.data,
+      time: endTime - startTime,
+      size: JSON.stringify(response.data)?.length || 0 
+    });
+
+  } catch (error) {
+    const endTime = Date.now();
+    res.status(500).json({
+      error: error.message,
+      time: endTime - startTime,
+      status: 0,
+      statusText: 'Error'
+    });
+  }
+});
+
+// --- History Endpoints ---
+app.get('/api/history', (req, res) => {
+  const history = db.getHistory();
+  res.json(history);
+});
+
+// --- Collections Endpoints ---
+app.get('/api/collections', (req, res) => {
+  const collections = db.getCollections();
+  res.json(collections);
+});
+
+app.post('/api/collections', (req, res) => {
+  const { name, data } = req.body;
+  if (!name || !data) {
+    return res.status(400).json({ error: 'Name and Data are required.' });
+  }
+  const collection = db.createCollection(name, data);
+  res.status(201).json(collection);
+});
+
+app.put('/api/collections/:id', (req, res) => {
+  const { id } = req.params;
+  const { data } = req.body;
+  if (!data) return res.status(400).json({ error: 'Data is required.' });
+  const updated = db.updateCollection(id, data);
+  res.json(updated);
+});
+
+// --- Members Endpoints ---
+app.get('/api/members', (req, res) => {
+  const members = db.getMembers();
+  res.json(members);
+});
+
+app.post('/api/members', (req, res) => {
+  const { name, email, role } = req.body;
+  if (!name || !email) {
+    return res.status(400).json({ error: 'Name and Email are required.' });
+  }
+  const member = db.addMember({ name, email, role: role || 'READ ONLY' });
+  res.status(201).json(member);
+});
+
+app.put('/api/members/:id/role', (req, res) => {
+  const { id } = req.params;
+  const { role } = req.body;
+  if (!role) return res.status(400).json({ error: 'Role is required.' });
+  const updated = db.updateMemberRole(id, role);
+  res.json(updated);
+});
+
+app.delete('/api/members/:id', (req, res) => {
+  const { id } = req.params;
+  db.removeMember(id);
+  res.status(204).send();
+});
+
+// --- Workspaces Endpoints ---
+app.get('/api/workspaces', (req, res) => {
+  res.json(db.getWorkspaces());
+});
+
+app.post('/api/workspaces', (req, res) => {
+  const { name } = req.body;
+  if (!name) return res.status(400).json({ error: 'Name is required' });
+  res.status(201).json(db.addWorkspace(name));
+});
+
+app.put('/api/workspaces/:id', (req, res) => {
+  const { name } = req.body;
+  if (!name) return res.status(400).json({ error: 'Name is required' });
+  res.json(db.updateWorkspace(req.params.id, name));
+});
+
+app.delete('/api/workspaces/:id', (req, res) => {
+  const success = db.deleteWorkspace(req.params.id);
+  if (!success) return res.status(400).json({ error: 'Cannot delete default workspace' });
+  res.status(204).send();
+});
+
+// Catch-all to serve React app for non-API routes
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api/')) return next();
+  res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
+});
+
+app.listen(PORT, () => {
+  console.log(`Backend server running on http://localhost:${PORT}`);
+});
