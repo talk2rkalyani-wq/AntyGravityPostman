@@ -40,6 +40,21 @@ function initDb() {
       name TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      username TEXT UNIQUE,
+      email TEXT UNIQUE,
+      password_hash TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS sessions (
+      token TEXT PRIMARY KEY,
+      user_id TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(user_id) REFERENCES users(id)
+    );
   `);
 
   // Ensure 'My Workspace' exists
@@ -129,6 +144,54 @@ function deleteWorkspace(id) {
   return true;
 }
 
+// --- Auth ---
+function createUser(username, email, passwordHash) {
+  try {
+    const id = uuidv4();
+    const stmt = db.prepare('INSERT INTO users (id, username, email, password_hash) VALUES (?, ?, ?, ?)');
+    stmt.run(id, username, email, passwordHash);
+    return { id, username, email };
+  } catch (err) {
+    if (err.message.includes('UNIQUE constraint failed')) {
+      throw new Error('Username or Email already exists');
+    }
+    throw err;
+  }
+}
+
+function getUserByEmailOrUsername(identifier) {
+  const stmt = db.prepare('SELECT * FROM users WHERE email = ? OR username = ?');
+  return stmt.get(identifier, identifier);
+}
+
+function getUserById(id) {
+  const stmt = db.prepare('SELECT id, username, email, created_at FROM users WHERE id = ?');
+  return stmt.get(id);
+}
+
+function createSession(userId) {
+  const token = uuidv4(); // Use UUID as Bearer token for simplicity/security
+  const stmt = db.prepare('INSERT INTO sessions (token, user_id) VALUES (?, ?)');
+  stmt.run(token, userId);
+  return token;
+}
+
+function getUserBySession(token) {
+  const stmt = db.prepare(`
+    SELECT users.id, users.username, users.email 
+    FROM users 
+    JOIN sessions ON users.id = sessions.user_id 
+    WHERE sessions.token = ?
+  `);
+  return stmt.get(token);
+}
+
+function deleteSession(token) {
+  const stmt = db.prepare('DELETE FROM sessions WHERE token = ?');
+  stmt.run(token);
+}
+
+
 module.exports = {
   initDb,
   saveHistory,
@@ -143,5 +206,11 @@ module.exports = {
   getWorkspaces,
   addWorkspace,
   updateWorkspace,
-  deleteWorkspace
+  deleteWorkspace,
+  createUser,
+  getUserByEmailOrUsername,
+  getUserById,
+  createSession,
+  getUserBySession,
+  deleteSession
 };

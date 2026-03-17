@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ChevronDown, Plus, Trash, Edit2, Check, X } from 'lucide-react';
 
-function Header() {
+function Header({ onLogout }) {
   const [workspaces, setWorkspaces] = useState([]);
   const [activeWorkspace, setActiveWorkspace] = useState(null);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -13,7 +13,9 @@ function Header() {
 
   const fetchWorkspaces = async () => {
     try {
-      const res = await fetch('/api/workspaces');
+      const res = await fetch('/api/workspaces', {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
       const data = await res.json();
       setWorkspaces(data);
       if (data.length > 0 && !activeWorkspace) {
@@ -40,7 +42,10 @@ function Header() {
     try {
       await fetch('/api/workspaces', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
         body: JSON.stringify({ name: newWpName })
       });
       setNewWpName('');
@@ -55,7 +60,10 @@ function Header() {
     e.stopPropagation();
     if (!window.confirm("Delete this workspace?")) return;
     try {
-      await fetch(`/api/workspaces/${id}`, { method: 'DELETE' });
+      await fetch(`/api/workspaces/${id}`, { 
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
       if (activeWorkspace?.id === id) setActiveWorkspace(null); // Will default to first in fetch
       fetchWorkspaces();
     } catch (e) {
@@ -74,7 +82,10 @@ function Header() {
     try {
       await fetch(`/api/workspaces/${id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
         body: JSON.stringify({ name: editName })
       });
       setEditingId(null);
@@ -190,8 +201,18 @@ function Header() {
       </div>
       
       {/* Right side Header Icons could go here (Sync, Settings, Profile) */}
-      <div className="text-xs text-[var(--accent-cyan)] font-medium border border-[var(--accent-cyan)] rounded px-3 py-1 bg-cyan-900 bg-opacity-20 cursor-default">
-         {activeWorkspace ? activeWorkspace.name : 'Loading Workspace...'}
+      <div className="flex items-center gap-4">
+        <div className="text-xs text-[var(--accent-cyan)] font-medium border border-[var(--accent-cyan)] rounded px-3 py-1 bg-cyan-900 bg-opacity-20 cursor-default">
+           {activeWorkspace ? activeWorkspace.name : 'Loading Workspace...'}
+        </div>
+        {onLogout && (
+          <button 
+            onClick={onLogout}
+            className="text-xs text-red-500 hover:text-white hover:bg-red-500 border border-red-500 rounded px-3 py-1 font-medium transition-colors"
+          >
+            Logout
+          </button>
+        )}
       </div>
     </header>
   );

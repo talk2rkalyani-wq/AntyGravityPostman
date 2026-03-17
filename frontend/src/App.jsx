@@ -5,12 +5,36 @@ import ResponseViewer from './components/ResponseViewer';
 import AccountManager from './components/AccountManager';
 import Header from './components/Header';
 import ImportModal from './components/ImportModal';
+import Login from './components/Login';
+import Signup from './components/Signup';
 import './index.css';
 
 function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('token'));
+  const [authMode, setAuthMode] = useState('login');
   const [activeNavTab, setActiveNavTab] = useState('Collections');
   const [showAccount, setShowAccount] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+
+  const handleLoginSuccess = (token, user) => {
+    localStorage.setItem('token', token);
+    localStorage.setItem('user', JSON.stringify(user));
+    setIsAuthenticated(true);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+    } catch(e) {}
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    setIsAuthenticated(false);
+  };
   
   // Main Request State
   const [requestState, setRequestState] = useState({
@@ -76,7 +100,10 @@ function App() {
 
       const res = await fetch('/api/proxy', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
         body: JSON.stringify(proxyPayload)
       });
 
@@ -125,14 +152,20 @@ function App() {
            
            await fetch(`/api/collections/${existing.id}`, {
               method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
+              headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+              },
               body: JSON.stringify({ data: existingData })
            });
         } else {
            const newData = { requests: [dataToSave] };
            await fetch('/api/collections', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+              },
               body: JSON.stringify({ name: colName, data: newData })
            });
         }
@@ -158,9 +191,18 @@ function App() {
     setResponseState(null);
   };
 
+  // Render Auth Flow if not logged in
+  if (!isAuthenticated) {
+    if (authMode === 'login') {
+      return <Login onLogin={handleLoginSuccess} onNavigateSignup={() => setAuthMode('signup')} />;
+    } else {
+      return <Signup onLogin={handleLoginSuccess} onNavigateLogin={() => setAuthMode('login')} />;
+    }
+  }
+
   return (
     <div className="flex flex-col h-screen w-screen bg-[var(--bg-primary)] overflow-hidden">
-      <Header />
+      <Header onLogout={handleLogout} />
       <div className="flex flex-1 overflow-hidden relative">
         <Sidebar 
           activeNavTab={activeNavTab} 

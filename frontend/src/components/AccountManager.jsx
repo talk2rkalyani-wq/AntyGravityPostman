@@ -15,7 +15,9 @@ function AccountManager({ onClose }) {
   const fetchMembers = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/members');
+      const res = await fetch('/api/members', {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
       const data = await res.json();
       setMembers(data);
     } catch (error) {
@@ -35,7 +37,10 @@ function AccountManager({ onClose }) {
     try {
       await fetch('/api/members', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
         body: JSON.stringify({ name: inviteName, email: inviteEmail, role: inviteRole })
       });
       setShowInviteModal(false);
@@ -53,7 +58,10 @@ function AccountManager({ onClose }) {
       setMembers(members.map(m => m.id === id ? { ...m, role: newRole } : m));
       await fetch(`/api/members/${id}/role`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
         body: JSON.stringify({ role: newRole })
       });
     } catch (error) {
@@ -67,7 +75,8 @@ function AccountManager({ onClose }) {
     try {
       setMembers(members.filter(m => m.id !== id));
       await fetch(`/api/members/${id}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       });
     } catch (error) {
       console.error(error);

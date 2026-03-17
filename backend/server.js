@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
 const path = require('path');
+const bcrypt = require('bcryptjs');
 const db = require('./db');
 
 const app = express();
@@ -86,6 +87,60 @@ app.post('/api/proxy', async (req, res) => {
     });
   }
 });
+
+// --- Auth Middleware ---
+const requireAuth = (req, res, next) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+  const user = db.getUserBySession(token);
+  if (!user) return res.status(401).json({ error: 'Invalid or expired session' });
+  req.user = user;
+  next();
+};
+
+// --- Auth Endpoints ---
+app.post('/api/auth/register', (req, res) => {
+  const { username, email, password } = req.body;
+  if (!username || !email || !password) return res.status(400).json({ error: 'All fields are required' });
+  
+  try {
+    const hash = bcrypt.hashSync(password, 10);
+    const user = db.createUser(username, email, hash);
+    const token = db.createSession(user.id);
+    res.status(201).json({ user, token });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post('/api/auth/login', (req, res) => {
+  const { identifier, password } = req.body; // identifier can be email or username
+  if (!identifier || !password) return res.status(400).json({ error: 'Username/Email and password are required' });
+  
+  const user = db.getUserByEmailOrUsername(identifier);
+  if (!user || !bcrypt.compareSync(password, user.password_hash)) {
+    return res.status(401).json({ error: 'Invalid credentials' });
+  }
+  
+  const token = db.createSession(user.id);
+  res.json({ user: { id: user.id, username: user.username, email: user.email }, token });
+});
+
+app.get('/api/auth/me', requireAuth, (req, res) => {
+  res.json({ user: req.user });
+});
+
+app.post('/api/auth/logout', requireAuth, (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (token) db.deleteSession(token);
+  res.json({ success: true });
+});
+
+// --- Protected Routes Middleware ---
+app.use('/api/history', requireAuth);
+app.use('/api/collections', requireAuth);
+app.use('/api/members', requireAuth);
+app.use('/api/workspaces', requireAuth);
 
 // --- History Endpoints ---
 app.get('/api/history', (req, res) => {

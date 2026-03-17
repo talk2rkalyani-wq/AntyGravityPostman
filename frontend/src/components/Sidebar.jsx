@@ -10,7 +10,11 @@ function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAcc
   useEffect(() => {
     if (activeNavTab === 'History') {
       setLoading(true);
-      fetch('/api/history')
+      fetch('/api/history', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      })
         .then(res => res.json())
         .then(data => {
             setHistory(data);
@@ -22,7 +26,11 @@ function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAcc
         });
     } else if (activeNavTab === 'Collections') {
       setLoading(true);
-      fetch('/api/collections')
+      fetch('/api/collections', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      })
         .then(res => res.json())
         .then(data => {
             setCollections(data);
