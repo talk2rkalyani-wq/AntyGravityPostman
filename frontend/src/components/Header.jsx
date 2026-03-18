@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ChevronDown, Plus, Trash, Edit2, Check, X } from 'lucide-react';
+import Logo from './Logo';
 
 function Header({ onLogout }) {
   const [workspaces, setWorkspaces] = useState([]);
@@ -101,8 +102,11 @@ function Header({ onLogout }) {
   return (
     <header className="h-12 border-b border-[var(--border-color)] bg-[var(--bg-primary)] flex items-center px-4 shrink-0 transition-colors">
       <div className="flex gap-6 items-center flex-1">
-        <div className="font-semibold text-lg bg-clip-text text-transparent bg-gradient-to-r from-[#06B6D4] to-[#8B5CF6]">
-           API Client
+        <div className="flex items-center gap-2">
+          <Logo className="w-6 h-6" />
+          <div className="font-bold text-xl tracking-wide bg-clip-text text-transparent bg-gradient-to-r from-[#06B6D4] to-[#8B5CF6]">
+             NeonAPI
+          </div>
         </div>
 
         <nav className="flex gap-4 ml-4">

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import Logo from './Logo';
 
 export default function Login({ onLogin, onNavigateSignup, onNavigateForgot }) {
   const [identifier, setIdentifier] = useState('');
@@ -43,12 +44,12 @@ export default function Login({ onLogin, onNavigateSignup, onNavigateForgot }) {
         
         {/* Branding Area */}
         <div className="p-8 text-center pb-0">
-          <div className="mx-auto w-16 h-16 bg-gradient-to-br from-cyan-400 to-purple-500 rounded-full flex items-center justify-center shadow-lg shadow-cyan-500/30 mb-6">
-            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
+          <div className="mx-auto w-16 h-16 bg-gradient-to-br from-cyan-400 to-purple-500 rounded-full flex items-center justify-center shadow-lg shadow-cyan-500/30 mb-6 relative">
+            <div className="absolute inset-[2px] rounded-full bg-[#0F172A] flex items-center justify-center">
+              <Logo className="w-8 h-8" />
+            </div>
           </div>
-          <h2 className="text-3xl font-bold tracking-tight text-white mb-2">Sign in to API Client</h2>
+          <h2 className="text-3xl font-bold tracking-tight text-white mb-2">Sign in to NeonAPI</h2>
           <p className="text-gray-400 text-sm">Welcome back! Please enter your details.</p>
         </div>
 

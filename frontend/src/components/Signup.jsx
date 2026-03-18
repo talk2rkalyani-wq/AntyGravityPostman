@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import Logo from './Logo';
 
 export default function Signup({ onLogin, onNavigateLogin }) {
   const [username, setUsername] = useState('');
@@ -45,13 +46,13 @@ export default function Signup({ onLogin, onNavigateLogin }) {
         
         {/* Branding Area */}
         <div className="p-8 text-center pb-0">
-          <div className="mx-auto w-16 h-16 bg-gradient-to-br from-purple-500 to-cyan-400 rounded-full flex items-center justify-center shadow-lg shadow-purple-500/30 mb-6">
-            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-            </svg>
+          <div className="mx-auto w-16 h-16 bg-gradient-to-br from-purple-500 to-cyan-400 rounded-full flex items-center justify-center shadow-lg shadow-purple-500/30 mb-6 relative">
+            <div className="absolute inset-[2px] rounded-full bg-[#0F172A] flex items-center justify-center">
+              <Logo className="w-8 h-8" />
+            </div>
           </div>
           <h2 className="text-3xl font-bold tracking-tight text-white mb-2">Create a free account</h2>
-          <p className="text-gray-400 text-sm">Join the API platform today. It's free!</p>
+          <p className="text-gray-400 text-sm">Join NeonAPI today. It's free!</p>
         </div>
 
         {/* Form Area */}

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Search, Folder, Clock, Settings, LayoutPanelLeft, ChevronRight, ChevronDown } from 'lucide-react';
+import Logo from './Logo';
 
 function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAccount, onNewRequest, onImport }) {
   const [history, setHistory] = useState([]);
@@ -76,8 +77,8 @@ function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAcc
 
       <div className="p-4 border-b border-[var(--border-color)]">
         <div className="flex items-center gap-2">
-          <LayoutPanelLeft className="text-[var(--accent-cyan)]" />
-          <span className="font-bold text-lg tracking-wide bg-clip-text text-transparent bg-gradient-to-r from-[#06B6D4] to-[#8B5CF6]">
+          <Logo className="w-6 h-6" />
+          <span className="font-bold text-xl tracking-wide bg-clip-text text-transparent bg-gradient-to-r from-[#06B6D4] to-[#8B5CF6]">
             NeonAPI
           </span>
         </div>
