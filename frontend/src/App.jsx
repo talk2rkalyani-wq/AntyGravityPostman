@@ -7,6 +7,7 @@ import Header from './components/Header';
 import ImportModal from './components/ImportModal';
 import Login from './components/Login';
 import Signup from './components/Signup';
+import ForgotPassword from './components/ForgotPassword';
 import './index.css';
 
 function App() {
@@ -194,9 +195,11 @@ function App() {
   // Render Auth Flow if not logged in
   if (!isAuthenticated) {
     if (authMode === 'login') {
-      return <Login onLogin={handleLoginSuccess} onNavigateSignup={() => setAuthMode('signup')} />;
-    } else {
+      return <Login onLogin={handleLoginSuccess} onNavigateSignup={() => setAuthMode('signup')} onNavigateForgot={() => setAuthMode('forgot')} />;
+    } else if (authMode === 'signup') {
       return <Signup onLogin={handleLoginSuccess} onNavigateLogin={() => setAuthMode('login')} />;
+    } else if (authMode === 'forgot') {
+      return <ForgotPassword onNavigateLogin={() => setAuthMode('login')} />;
     }
   }
 

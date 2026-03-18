@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-export default function Login({ onLogin, onNavigateSignup }) {
+export default function Login({ onLogin, onNavigateSignup, onNavigateForgot }) {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [isHuman, setIsHuman] = useState(false);
@@ -92,7 +92,7 @@ export default function Login({ onLogin, onNavigateSignup }) {
                 <input type="checkbox" className="w-4 h-4 rounded border-gray-600 bg-gray-700 text-cyan-500 focus:ring-cyan-500/50 focus:ring-1 focus:ring-offset-0 transition-all" />
                 <span className="text-gray-400 group-hover:text-gray-200 transition-colors">Stay signed in</span>
               </label>
-              <a href="#" className="text-cyan-400 hover:text-cyan-300 font-medium transition-colors">Forgot password?</a>
+              <button type="button" onClick={onNavigateForgot} className="text-cyan-400 hover:text-cyan-300 font-medium transition-colors">Forgot password?</button>
             </div>
 
             {/* Verify Human Checkbox (Visual imitation) */}

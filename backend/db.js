@@ -55,6 +55,13 @@ function initDb() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY(user_id) REFERENCES users(id)
     );
+
+    CREATE TABLE IF NOT EXISTS password_resets (
+      email TEXT PRIMARY KEY,
+      otp TEXT,
+      reset_token TEXT,
+      expires_at DATETIME
+    );
   `);
 
   // Ensure 'My Workspace' exists
@@ -191,6 +198,43 @@ function deleteSession(token) {
   stmt.run(token);
 }
 
+// --- Password Reset ---
+function saveOtp(email, otp) {
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 mins
+  const stmt = db.prepare(`
+    INSERT INTO password_resets (email, otp, expires_at) 
+    VALUES (?, ?, ?) 
+    ON CONFLICT(email) DO UPDATE SET otp=excluded.otp, expires_at=excluded.expires_at, reset_token=NULL
+  `);
+  stmt.run(email, otp, expiresAt);
+}
+
+function verifyOtp(email, otp) {
+  const stmt = db.prepare('SELECT * FROM password_resets WHERE email = ? AND otp = ? AND expires_at > ?');
+  const record = stmt.get(email, otp, new Date().toISOString());
+  if (!record) return null;
+  
+  // Valid OTP, now generate a reset token
+  const resetToken = uuidv4();
+  db.prepare('UPDATE password_resets SET reset_token = ?, otp = NULL WHERE email = ?').run(resetToken, email);
+  return resetToken;
+}
+
+function verifyResetToken(email, resetToken) {
+  const stmt = db.prepare('SELECT * FROM password_resets WHERE email = ? AND reset_token = ? AND expires_at > ?');
+  return !!stmt.get(email, resetToken, new Date().toISOString());
+}
+
+function updatePasswordByEmail(email, passwordHash) {
+  db.prepare('UPDATE users SET password_hash = ? WHERE email = ?').run(passwordHash, email);
+  db.prepare('DELETE FROM password_resets WHERE email = ?').run(email);
+  
+  // Clear any existing sessions for this user so they are forced to log in again
+  const user = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
+  if (user) {
+    db.prepare('DELETE FROM sessions WHERE user_id = ?').run(user.id);
+  }
+}
 
 module.exports = {
   initDb,
@@ -212,5 +256,9 @@ module.exports = {
   getUserById,
   createSession,
   getUserBySession,
-  deleteSession
+  deleteSession,
+  saveOtp,
+  verifyOtp,
+  verifyResetToken,
+  updatePasswordByEmail
 };

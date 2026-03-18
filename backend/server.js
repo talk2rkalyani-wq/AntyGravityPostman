@@ -136,6 +136,49 @@ app.post('/api/auth/logout', requireAuth, (req, res) => {
   res.json({ success: true });
 });
 
+// --- Password Reset Endpoints ---
+app.post('/api/auth/forgot-password', (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: 'Email is required' });
+  
+  const user = db.getUserByEmailOrUsername(email);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+  
+  // Generate 6 digit OTP
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  db.saveOtp(user.email, otp);
+  
+  console.log(`\n==========================================`);
+  console.log(`[SECURE EMAIL MOCK] OTP for ${user.email} is: ${otp}`);
+  console.log(`==========================================\n`);
+  
+  // Returning the OTP just so the user can test the UI easily without a real SMTP setup
+  res.json({ message: 'OTP sent successfully', _dev_otp: otp });
+});
+
+app.post('/api/auth/verify-otp', (req, res) => {
+  const { email, otp } = req.body;
+  if (!email || !otp) return res.status(400).json({ error: 'Email and OTP are required' });
+  
+  const resetToken = db.verifyOtp(email, otp);
+  if (!resetToken) return res.status(400).json({ error: 'Invalid or expired OTP' });
+  
+  res.json({ resetToken });
+});
+
+app.post('/api/auth/reset-password', (req, res) => {
+  const { email, resetToken, newPassword } = req.body;
+  if (!email || !resetToken || !newPassword) return res.status(400).json({ error: 'Missing required fields' });
+  
+  const isValid = db.verifyResetToken(email, resetToken);
+  if (!isValid) return res.status(400).json({ error: 'Invalid or expired reset session' });
+  
+  const hash = bcrypt.hashSync(newPassword, 10);
+  db.updatePasswordByEmail(email, hash);
+  
+  res.json({ success: true });
+});
+
 // --- Protected Routes Middleware ---
 app.use('/api/history', requireAuth);
 app.use('/api/collections', requireAuth);
