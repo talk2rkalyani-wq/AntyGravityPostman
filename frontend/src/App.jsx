@@ -126,7 +126,7 @@ function App() {
     }
   };
 
-  const handleSaveToCollection = async () => {
+   const handleSaveToCollection = async () => {
      const reqName = prompt("Enter Request Name:", "My Request");
      if (!reqName) return;
      const colName = prompt("Enter Collection Name (or create new):", "My Collection");
@@ -142,7 +142,9 @@ function App() {
      };
 
      try {
-        const colRes = await fetch('/api/collections');
+        const colRes = await fetch('/api/collections', {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
         const collections = await colRes.json();
         const existing = collections.find(c => c.name === colName);
 
@@ -180,6 +182,57 @@ function App() {
      }
   };
 
+  const handleImportAndSave = async (parsedRequest, reqName, colName) => {
+     const dataToSave = {
+        name: reqName,
+        method: parsedRequest.method,
+        url: parsedRequest.url,
+        params: parsedRequest.params.filter(p => p.active && p.key),
+        headers: parsedRequest.headers.filter(h => h.active && h.key),
+        body: parsedRequest.body
+     };
+
+     try {
+        const colRes = await fetch('/api/collections', {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+        const collections = await colRes.json();
+        const existing = collections.find(c => c.name === colName);
+
+        if (existing) {
+           const existingData = typeof existing.data === 'string' ? JSON.parse(existing.data) : existing.data;
+           if (!existingData.requests) existingData.requests = [];
+           existingData.requests.push(dataToSave);
+           
+           await fetch(`/api/collections/${existing.id}`, {
+              method: 'PUT',
+              headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+              },
+              body: JSON.stringify({ data: existingData })
+           });
+        } else {
+           const newData = { requests: [dataToSave] };
+           await fetch('/api/collections', {
+              method: 'POST',
+              headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+              },
+              body: JSON.stringify({ name: colName, data: newData })
+           });
+        }
+        
+        setRequestState(parsedRequest);
+        setResponseState(null);
+        setActiveNavTab('Collections');
+        setHistoryRefreshTrigger(prev => prev + 1);
+     } catch(e) {
+        alert('Failed to import and save collection: ' + e.message);
+     }
+  };
+
   const handleNewRequest = () => {
     setRequestState({
       method: 'GET',
@@ -214,6 +267,17 @@ function App() {
           openAccount={() => setShowAccount(true)}
           onNewRequest={handleNewRequest}
           onImport={() => setShowImportModal(true)}
+          onLoadRequest={(req) => {
+             setRequestState({
+                method: req.method || 'GET',
+                url: req.url || '',
+                headers: (req.headers && req.headers.length > 0) ? req.headers : [{ key: '', value: '', active: true }],
+                params: (req.params && req.params.length > 0) ? req.params : [{ key: '', value: '', active: true }],
+                body: req.body || '',
+                activeTab: 'Params'
+             });
+             setResponseState(null);
+          }}
         />
         {showAccount ? (
           <AccountManager onClose={() => setShowAccount(false)} />
@@ -239,6 +303,7 @@ function App() {
             setRequestState(parsedState);
             setResponseState(null);
           }}
+          onImportAndSave={handleImportAndSave}
         />
       )}
     </div>

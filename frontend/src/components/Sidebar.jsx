@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Search, Folder, Clock, Settings, LayoutPanelLeft, ChevronRight, ChevronDown } from 'lucide-react';
 import Logo from './Logo';
 
-function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAccount, onNewRequest, onImport }) {
+function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAccount, onNewRequest, onImport, onLoadRequest }) {
   const [history, setHistory] = useState([]);
   const [collections, setCollections] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -145,7 +145,11 @@ function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAcc
                                <div className="text-xs text-[var(--text-muted)] p-1">Empty collection</div>
                             ) : (
                                requests.map((req, idx) => (
-                                 <div key={idx} className="flex items-center gap-2 p-1.5 hover:bg-[var(--bg-tertiary)] rounded cursor-pointer text-sm">
+                               <div 
+                                 key={idx} 
+                                 className="flex items-center gap-2 p-1.5 hover:bg-[var(--bg-tertiary)] rounded cursor-pointer text-sm"
+                                 onClick={() => onLoadRequest && onLoadRequest(req)}
+                               >
                                     <span style={{ color: getMethodColor(req.method) }} className="font-bold text-[10px] w-10">{req.method}</span>
                                     <span className="truncate text-[var(--text-secondary)]">{req.name || req.url}</span>
                                  </div>
@@ -168,7 +172,11 @@ function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAcc
               </div>
             ) : (
               history.map((item) => (
-                <div key={item.id} className="p-2 hover:bg-[var(--bg-tertiary)] rounded-md cursor-pointer transition-colors border border-transparent hover:border-[var(--border-color)] group flex flex-col gap-1">
+                <div 
+                  key={item.id} 
+                  className="p-2 hover:bg-[var(--bg-tertiary)] rounded-md cursor-pointer transition-colors border border-transparent hover:border-[var(--border-color)] group flex flex-col gap-1"
+                  onClick={() => onLoadRequest && onLoadRequest(item)}
+                >
                    <div className="flex items-center gap-2 text-sm">
                       <span style={{ color: getMethodColor(item.method) }} className="font-bold text-[10px] w-10">{item.method}</span>
                       <span className="truncate text-[var(--text-primary)] flex-1">{item.url}</span>
