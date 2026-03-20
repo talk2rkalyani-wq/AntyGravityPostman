@@ -56,10 +56,16 @@ function parseCurl(curlCommand) {
   return {
       method: method || 'GET',
       url: url || '',
-      headers: headers,
-      params: [{ key: '', value: '', active: true }], // query params are left to the URL string
+      headers: headers.map(h => ({ ...h, description: '' })),
+      params: [{ key: '', value: '', description: '', active: true }],
       bodyType: bodyData ? 'raw' : 'none',
-      body: bodyData,
+      bodyRaw: bodyData || '',
+      bodyFormData: [{ key: '', value: '', description: '', active: true }],
+      bodyUrlEncoded: [{ key: '', value: '', description: '', active: true }],
+      bodyGraphQLQuery: '',
+      bodyGraphQLVariables: '',
+      authType: 'No Auth',
+      authData: {},
       activeTab: 'Params'
   };
 }
@@ -178,10 +184,16 @@ function ImportModal({ onClose, onImportRequest, onImportAndSave }) {
                           const requestState = {
                              method: 'GET',
                              url: val,
-                             headers: [{ key: '', value: '', active: true }],
-                             params: [{ key: '', value: '', active: true }],
+                             headers: [{ key: '', value: '', description: '', active: true }],
+                             params: [{ key: '', value: '', description: '', active: true }],
                              bodyType: 'none',
-                             body: '',
+                             bodyRaw: '',
+                             bodyFormData: [{ key: '', value: '', description: '', active: true }],
+                             bodyUrlEncoded: [{ key: '', value: '', description: '', active: true }],
+                             bodyGraphQLQuery: '',
+                             bodyGraphQLVariables: '',
+                             authType: 'No Auth',
+                             authData: {},
                              activeTab: 'Params'
                           };
                           setParsedRequest(requestState);

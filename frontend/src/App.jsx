@@ -37,14 +37,20 @@ function App() {
     setIsAuthenticated(false);
   };
   
-  // Main Request State
   const [requestState, setRequestState] = useState({
     method: 'GET',
     url: 'https://jsonplaceholder.typicode.com/todos/1',
     activeTab: 'Params',
     params: [{ key: '', value: '', description: '', active: true }],
     headers: [{ key: '', value: '', description: '', active: true }],
-    body: ''
+    bodyType: 'none',
+    bodyRaw: '',
+    bodyFormData: [{ key: '', value: '', description: '', active: true }],
+    bodyUrlEncoded: [{ key: '', value: '', description: '', active: true }],
+    bodyGraphQLQuery: '',
+    bodyGraphQLVariables: '',
+    authType: 'No Auth',
+    authData: {}
   });
 
   const [responseState, setResponseState] = useState(null);
@@ -79,14 +85,54 @@ function App() {
         }
       });
       
-      // Auto-add Content-Type for JSON body if not present
-      if (requestState.body && requestState.method !== 'GET' && requestState.method !== 'HEAD') {
-         if (!Object.keys(compiledHeaders).some(k => k.toLowerCase() === 'content-type')) {
-            try {
-               JSON.parse(requestState.body);
-               compiledHeaders['Content-Type'] = 'application/json';
-            // eslint-disable-next-line no-unused-vars
-            } catch(e) { /* ignore */ }
+      // Auth logic
+      if (requestState.authType === 'Bearer Token' && requestState.authData.bearerToken) {
+         compiledHeaders['Authorization'] = `Bearer ${requestState.authData.bearerToken}`;
+      } else if (requestState.authType === 'Basic Auth' && (requestState.authData.basicUsername || requestState.authData.basicPassword)) {
+         const encoded = btoa(`${requestState.authData.basicUsername || ''}:${requestState.authData.basicPassword || ''}`);
+         compiledHeaders['Authorization'] = `Basic ${encoded}`;
+      } else if (requestState.authType === 'API Key' && requestState.authData.apiKeyKey && requestState.authData.apiKeyValue) {
+         if (requestState.authData.apiKeyAddTo === 'Header') {
+            compiledHeaders[requestState.authData.apiKeyKey] = requestState.authData.apiKeyValue;
+         } else if (requestState.authData.apiKeyAddTo === 'Query Params') {
+            const urlObj = new URL(finalUrl);
+            urlObj.searchParams.append(requestState.authData.apiKeyKey, requestState.authData.apiKeyValue);
+            finalUrl = urlObj.toString();
+         }
+      }
+
+      // Body logic
+      let finalData = undefined;
+      if (requestState.method !== 'GET' && requestState.method !== 'HEAD') {
+         if (requestState.bodyType === 'raw') {
+            finalData = requestState.bodyRaw;
+            if (!Object.keys(compiledHeaders).some(k => k.toLowerCase() === 'content-type') && finalData) {
+                try {
+                   JSON.parse(finalData);
+                   compiledHeaders['Content-Type'] = 'application/json';
+                // eslint-disable-next-line no-unused-vars
+                } catch(e) { /* non-json raw */ }
+            }
+         } else if (requestState.bodyType === 'x-www-form-urlencoded') {
+            const params = new URLSearchParams();
+            requestState.bodyUrlEncoded.forEach(item => {
+               if (item.active && item.key) params.append(item.key, item.value);
+            });
+            finalData = params.toString();
+            compiledHeaders['Content-Type'] = 'application/x-www-form-urlencoded';
+         } else if (requestState.bodyType === 'form-data') {
+            const fdObj = {};
+            requestState.bodyFormData.forEach(item => {
+               if (item.active && item.key) fdObj[item.key] = item.value;
+            });
+            finalData = fdObj;
+            compiledHeaders['Content-Type'] = 'multipart/form-data'; 
+         } else if (requestState.bodyType === 'GraphQL') {
+            finalData = {
+               query: requestState.bodyGraphQLQuery,
+               variables: requestState.bodyGraphQLVariables ? JSON.parse(requestState.bodyGraphQLVariables) : {}
+            };
+            compiledHeaders['Content-Type'] = 'application/json';
          }
       }
 
@@ -94,9 +140,7 @@ function App() {
         url: finalUrl,
         method: requestState.method,
         headers: compiledHeaders,
-        data: requestState.method !== 'GET' && requestState.method !== 'HEAD' && requestState.body ? 
-                 (compiledHeaders['Content-Type'] === 'application/json' ? JSON.parse(requestState.body) : requestState.body) 
-                 : undefined
+        data: finalData
       };
 
       const res = await fetch('/api/proxy', {
@@ -133,12 +177,12 @@ function App() {
      if (!colName) return;
 
      const dataToSave = {
+        ...requestState,
         name: reqName,
-        method: requestState.method,
-        url: requestState.url,
-        params: requestState.params.filter(p => p.active && p.key),
-        headers: requestState.headers.filter(h => h.active && h.key),
-        body: requestState.body
+        params: requestState.params.filter(p => p.key || p.value),
+        headers: requestState.headers.filter(h => h.key || h.value),
+        bodyFormData: requestState.bodyFormData.filter(p => p.key || p.value),
+        bodyUrlEncoded: requestState.bodyUrlEncoded.filter(p => p.key || p.value)
      };
 
      try {
@@ -184,12 +228,12 @@ function App() {
 
   const handleImportAndSave = async (parsedRequest, reqName, colName) => {
      const dataToSave = {
+        ...parsedRequest,
         name: reqName,
-        method: parsedRequest.method,
-        url: parsedRequest.url,
-        params: parsedRequest.params.filter(p => p.active && p.key),
-        headers: parsedRequest.headers.filter(h => h.active && h.key),
-        body: parsedRequest.body
+        params: parsedRequest.params.filter(p => p.key || p.value),
+        headers: parsedRequest.headers.filter(h => h.key || h.value),
+        bodyFormData: parsedRequest.bodyFormData.filter(p => p.key || p.value),
+        bodyUrlEncoded: parsedRequest.bodyUrlEncoded.filter(p => p.key || p.value)
      };
 
      try {
@@ -237,10 +281,17 @@ function App() {
     setRequestState({
       method: 'GET',
       url: '',
-      headers: [{ key: '', value: '', enabled: true }],
-      params: [{ key: '', value: '', enabled: true }],
+      activeTab: 'Params',
+      params: [{ key: '', value: '', description: '', active: true }],
+      headers: [{ key: '', value: '', description: '', active: true }],
       bodyType: 'none',
-      bodyData: ''
+      bodyRaw: '',
+      bodyFormData: [{ key: '', value: '', description: '', active: true }],
+      bodyUrlEncoded: [{ key: '', value: '', description: '', active: true }],
+      bodyGraphQLQuery: '',
+      bodyGraphQLVariables: '',
+      authType: 'No Auth',
+      authData: {}
     });
     setResponseState(null);
   };
@@ -271,9 +322,16 @@ function App() {
              setRequestState({
                 method: req.method || 'GET',
                 url: req.url || '',
-                headers: (req.headers && req.headers.length > 0) ? req.headers : [{ key: '', value: '', active: true }],
-                params: (req.params && req.params.length > 0) ? req.params : [{ key: '', value: '', active: true }],
-                body: req.body || '',
+                headers: (req.headers && req.headers.length > 0) ? req.headers : [{ key: '', value: '', description: '', active: true }],
+                params: (req.params && req.params.length > 0) ? req.params : [{ key: '', value: '', description: '', active: true }],
+                bodyType: req.bodyType || (req.body ? 'raw' : 'none'),
+                bodyRaw: req.bodyRaw || req.body || '',
+                bodyFormData: (req.bodyFormData && req.bodyFormData.length > 0) ? req.bodyFormData : [{ key: '', value: '', description: '', active: true }],
+                bodyUrlEncoded: (req.bodyUrlEncoded && req.bodyUrlEncoded.length > 0) ? req.bodyUrlEncoded : [{ key: '', value: '', description: '', active: true }],
+                bodyGraphQLQuery: req.bodyGraphQLQuery || '',
+                bodyGraphQLVariables: req.bodyGraphQLVariables || '',
+                authType: req.authType || 'No Auth',
+                authData: req.authData || {},
                 activeTab: 'Params'
              });
              setResponseState(null);
