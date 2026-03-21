@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import Logo from './Logo';
+import { Eye, EyeOff } from 'lucide-react';
 
 export default function Login({ onLogin, onNavigateSignup, onNavigateForgot }) {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isHuman, setIsHuman] = useState(false);
   const [error, setError] = useState('');
 
@@ -79,14 +81,23 @@ export default function Login({ onLogin, onNavigateSignup, onNavigateForgot }) {
 
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-1.5">Password</label>
-              <input 
-                type="password" 
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="w-full bg-[#0F172A]/50 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500 transition-all placeholder-gray-500"
-                placeholder="••••••••"
-              />
+              <div className="relative">
+                <input 
+                  type={showPassword ? "text" : "password"} 
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="w-full bg-[#0F172A]/50 border border-white/10 rounded-lg px-4 py-3 pr-12 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500 transition-all placeholder-gray-500"
+                  placeholder="••••••••"
+                />
+                <button 
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-cyan-400 transition-colors"
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
               <div className="bg-white/5 border border-cyan-500/30 rounded p-3 text-xs text-cyan-200/70 mt-3">
                 <strong>Password Guidelines:</strong> Minimum 6 characters combining uppercase, lowercase, numbers, and symbols (@$!%*?&).
               </div>

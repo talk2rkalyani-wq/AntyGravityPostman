@@ -1,4 +1,27 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
+
+const PasswordField = ({ value, onChange, placeholder, className }) => {
+  const [show, setShow] = useState(false);
+  return (
+    <div className="relative w-full">
+      <input
+        type={show ? "text" : "password"}
+        className={`${className} pr-8`}
+        placeholder={placeholder}
+        value={value}
+        onChange={onChange}
+      />
+      <button 
+        type="button" 
+        onClick={() => setShow(!show)} 
+        className="absolute inset-y-0 right-0 pr-2 flex items-center text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+      >
+        {show ? <EyeOff size={16} /> : <Eye size={16} />}
+      </button>
+    </div>
+  );
+};
 
 const authTypes = [
   'No Auth', 'API Key', 'Bearer Token', 'JWT Bearer', 'Basic Auth', 'Digest Auth', 
@@ -107,7 +130,7 @@ function AuthEditor({ requestState, setRequestState }) {
               <input type="text" className="input-field w-full text-sm font-mono px-3 py-1.5 outline-none" placeholder="Username" value={authData.basicUsername || ''} onChange={e => updateData('basicUsername', e.target.value)} />
             </FormRow>
             <FormRow label="Password">
-              <input type="password" className="input-field w-full text-sm font-mono px-3 py-1.5 outline-none" placeholder="Password" value={authData.basicPassword || ''} onChange={e => updateData('basicPassword', e.target.value)} />
+              <PasswordField className="input-field w-full text-sm font-mono px-3 py-1.5 outline-none" placeholder="Password" value={authData.basicPassword || ''} onChange={e => updateData('basicPassword', e.target.value)} />
             </FormRow>
           </div>
         )}
@@ -128,14 +151,14 @@ function AuthEditor({ requestState, setRequestState }) {
                 <FormRow label="Auth URL"><input type="text" className="input-field w-full text-sm py-1" /></FormRow>
                 <FormRow label="Access Token URL"><input type="text" className="input-field w-full text-sm py-1" /></FormRow>
                 <FormRow label="Client ID"><input type="text" className="input-field w-full text-sm py-1" /></FormRow>
-                <FormRow label="Client Secret"><input type="password" className="input-field w-full text-sm py-1" /></FormRow>
+                <FormRow label="Client Secret"><PasswordField className="input-field w-full text-sm py-1" /></FormRow>
                 <FormRow label="Scope"><input type="text" className="input-field w-full text-sm py-1" /></FormRow>
                 <div className="flex justify-end mt-4"><button className="btn-secondary py-1 px-4 text-xs font-medium border border-[#06B6D4] text-[#06B6D4]">Get New Access Token</button></div>
               </>
             ) : authType === 'AWS Signature' ? (
               <>
                 <FormRow label="AccessKey"><input type="text" className="input-field w-full text-sm py-1" /></FormRow>
-                <FormRow label="SecretKey"><input type="password" className="input-field w-full text-sm py-1" /></FormRow>
+                <FormRow label="SecretKey"><PasswordField className="input-field w-full text-sm py-1" /></FormRow>
                 <FormRow label="AWS Region"><input type="text" className="input-field w-full text-sm py-1" /></FormRow>
                 <FormRow label="Service Name"><input type="text" className="input-field w-full text-sm py-1" /></FormRow>
                 <FormRow label="Session Token"><input type="text" className="input-field w-full text-sm py-1" /></FormRow>

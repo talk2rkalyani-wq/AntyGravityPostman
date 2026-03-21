@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import Logo from './Logo';
+import { Eye, EyeOff } from 'lucide-react';
 
 export default function Signup({ onLogin, onNavigateLogin }) {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isHuman, setIsHuman] = useState(false);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
@@ -107,14 +109,23 @@ export default function Signup({ onLogin, onNavigateLogin }) {
 
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-1.5">Password</label>
-              <input 
-                type="password" 
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="w-full bg-[#0F172A]/50 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all placeholder-gray-500"
-                placeholder="Create a strong password"
-              />
+              <div className="relative">
+                <input 
+                  type={showPassword ? "text" : "password"} 
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="w-full bg-[#0F172A]/50 border border-white/10 rounded-lg px-4 py-3 pr-12 text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all placeholder-gray-500"
+                  placeholder="Create a strong password"
+                />
+                <button 
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-purple-400 transition-colors"
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
               <div className="bg-white/5 border border-purple-500/30 rounded p-3 text-xs text-purple-200/70 mt-3">
                 <strong>Password Guidelines:</strong> Minimum 6 characters combining uppercase, lowercase, numbers, and symbols (@$!%*?&).
               </div>
