@@ -7,6 +7,7 @@ export default function Signup({ onLogin, onNavigateLogin }) {
   const [password, setPassword] = useState('');
   const [isHuman, setIsHuman] = useState(false);
   const [error, setError] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -14,6 +15,12 @@ export default function Signup({ onLogin, onNavigateLogin }) {
 
     if (!isHuman) {
       setError('Please verify you are human by clicking the checkbox.');
+      return;
+    }
+
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{6,}$/;
+    if (!passwordRegex.test(password)) {
+      setError('Password must be at least 6 characters and include uppercase, lowercase, numbers, and symbols.');
       return;
     }
 
@@ -29,15 +36,17 @@ export default function Signup({ onLogin, onNavigateLogin }) {
         throw new Error(data.error || 'Registration failed');
       }
 
-      // Automatically login after successful registration
-      onLogin(data.token, data.user);
+      setSuccessMsg('Account created successfully! Redirecting to login...');
+      setTimeout(() => {
+        onNavigateLogin();
+      }, 1500);
     } catch (err) {
       setError(err.message);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#0F172A] flex items-center justify-center p-4 font-sans relative overflow-hidden">
+    <div className="min-h-screen bg-[#0F172A] flex items-center justify-center p-4 font-sans relative overflow-hidden" style={{ zoom: '0.7' }}>
       {/* Background glowing orbs */}
       <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-purple-600 rounded-full mix-blend-multiply filter blur-[128px] opacity-20"></div>
       <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-cyan-500 rounded-full mix-blend-multiply filter blur-[128px] opacity-20"></div>
@@ -59,10 +68,14 @@ export default function Signup({ onLogin, onNavigateLogin }) {
         <div className="p-8 pt-6">
           <form onSubmit={handleSubmit} className="space-y-4">
             
-            {/* Error Banner */}
             {error && (
               <div className="bg-red-500/10 border border-red-500/50 text-red-500 text-sm p-3 rounded-lg text-center font-medium">
                 {error}
+              </div>
+            )}
+            {successMsg && (
+              <div className="bg-green-500/10 border border-green-500/50 text-green-500 text-sm p-3 rounded-lg text-center font-medium">
+                {successMsg}
               </div>
             )}
 
@@ -73,6 +86,7 @@ export default function Signup({ onLogin, onNavigateLogin }) {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
+                maxLength={15}
                 className="w-full bg-[#0F172A]/50 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all placeholder-gray-500"
                 placeholder="Choose a username"
               />
@@ -85,6 +99,7 @@ export default function Signup({ onLogin, onNavigateLogin }) {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                maxLength={100}
                 className="w-full bg-[#0F172A]/50 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all placeholder-gray-500"
                 placeholder="Enter your email"
               />
@@ -100,6 +115,9 @@ export default function Signup({ onLogin, onNavigateLogin }) {
                 className="w-full bg-[#0F172A]/50 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all placeholder-gray-500"
                 placeholder="Create a strong password"
               />
+              <div className="bg-white/5 border border-purple-500/30 rounded p-3 text-xs text-purple-200/70 mt-3">
+                <strong>Password Guidelines:</strong> Minimum 6 characters combining uppercase, lowercase, numbers, and symbols (@$!%*?&).
+              </div>
             </div>
 
             {/* Verify Human Checkbox (Visual imitation) */}

@@ -35,6 +35,9 @@ function App() {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setIsAuthenticated(false);
+    setAuthMode('login');
+    handleNewRequest();
+    setResponseState(null);
   };
   
   const [requestState, setRequestState] = useState({

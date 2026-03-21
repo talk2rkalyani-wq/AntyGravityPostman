@@ -105,7 +105,7 @@ export default function ForgotPassword({ onNavigateLogin }) {
   };
 
   return (
-    <div className="min-h-screen bg-[#0F172A] flex items-center justify-center p-4 font-sans relative overflow-hidden">
+    <div className="min-h-screen bg-[#0F172A] flex items-center justify-center p-4 font-sans relative overflow-hidden" style={{ zoom: '0.7' }}>
       {/* Background glowing orbs */}
       <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-orange-500 rounded-full mix-blend-multiply filter blur-[128px] opacity-20"></div>
       <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-amber-500 rounded-full mix-blend-multiply filter blur-[128px] opacity-20"></div>
@@ -168,6 +168,7 @@ export default function ForgotPassword({ onNavigateLogin }) {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
+                    maxLength={100}
                     className="w-full bg-[#0F172A]/50 border border-white/10 rounded-lg px-4 py-3 pr-10 text-white focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 transition-all placeholder-gray-500"
                     placeholder="Enter your email"
                   />
