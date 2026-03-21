@@ -12,19 +12,16 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// Initialize SQLite DB
-db.initDb();
+// Initialize DB asynchronously without blocking top-level
+db.initDb().catch(console.error);
 
-// Add global middleware to bypass localtunnel reminder page for static assets
 app.use((req, res, next) => {
   res.setHeader('Bypass-Tunnel-Reminder', 'true');
   next();
 });
 
-// Serve static frontend files
 app.use(express.static(path.join(__dirname, '../frontend/dist')));
 
-// --- Proxy Endpoint ---
 app.post('/api/proxy', async (req, res) => {
   const { url, method, headers, auth, data } = req.body;
 
@@ -32,16 +29,14 @@ app.post('/api/proxy', async (req, res) => {
     return res.status(400).json({ error: 'URL and Method are required.' });
   }
 
-  // Construct Axios config
   const axiosConfig = {
     url,
     method,
     headers: headers || {},
     data: data || undefined,
-    validateStatus: () => true, // Don't throw errors for non-2xx status codes
+    validateStatus: () => true,
   };
 
-  // Optional: Handle Auth (Basic, Bearer, etc.) if provided separately from headers
   if (auth && auth.type) {
     if (auth.type === 'bearer' && auth.token) {
       axiosConfig.headers['Authorization'] = `Bearer ${auth.token}`;
@@ -59,15 +54,11 @@ app.post('/api/proxy', async (req, res) => {
     const response = await axios(axiosConfig);
     const endTime = Date.now();
     
-    // Save to History (Fire and forget)
+    // Save to History (Fire and forget, but handle exception)
     db.saveHistory({
-      url,
-      method,
-      status: response.status,
-      time: endTime - startTime
-    });
+      url, method, status: response.status, time: endTime - startTime
+    }).catch(console.error);
 
-    // Send response back to frontend
     res.status(response.status).json({
       status: response.status,
       statusText: response.statusText,
@@ -88,185 +79,179 @@ app.post('/api/proxy', async (req, res) => {
   }
 });
 
-// --- Auth Middleware ---
-const requireAuth = (req, res, next) => {
-  const token = req.headers.authorization?.split(' ')[1];
-  if (!token) return res.status(401).json({ error: 'Unauthorized' });
-  const user = db.getUserBySession(token);
-  if (!user) return res.status(401).json({ error: 'Invalid or expired session' });
-  req.user = user;
-  next();
+const requireAuth = async (req, res, next) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'Unauthorized' });
+    const user = await db.getUserBySession(token);
+    if (!user) return res.status(401).json({ error: 'Invalid or expired session' });
+    req.user = user;
+    next();
+  } catch (err) {
+    res.status(500).json({ error: 'Server error during auth' });
+  }
 };
 
-// --- Auth Endpoints ---
-app.post('/api/auth/register', (req, res) => {
+app.post('/api/auth/register', async (req, res) => {
   const { username, email, password } = req.body;
   if (!username || !email || !password) return res.status(400).json({ error: 'All fields are required' });
   
   try {
     const hash = bcrypt.hashSync(password, 10);
-    const user = db.createUser(username, email, hash);
-    const token = db.createSession(user.id);
+    const user = await db.createUser(username, email, hash);
+    const token = await db.createSession(user.id);
     res.status(201).json({ user, token });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 });
 
-app.post('/api/auth/login', (req, res) => {
-  const { identifier, password } = req.body; // identifier can be email or username
+app.post('/api/auth/login', async (req, res) => {
+  const { identifier, password } = req.body;
   if (!identifier || !password) return res.status(400).json({ error: 'Username/Email and password are required' });
   
-  const user = db.getUserByEmailOrUsername(identifier);
-  if (!user || !bcrypt.compareSync(password, user.password_hash)) {
-    return res.status(401).json({ error: 'Invalid credentials' });
+  try {
+    const user = await db.getUserByEmailOrUsername(identifier);
+    if (!user || !bcrypt.compareSync(password, user.password_hash)) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    
+    const token = await db.createSession(user.id);
+    res.json({ user: { id: user.id, username: user.username, email: user.email }, token });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
-  
-  const token = db.createSession(user.id);
-  res.json({ user: { id: user.id, username: user.username, email: user.email }, token });
 });
 
 app.get('/api/auth/me', requireAuth, (req, res) => {
   res.json({ user: req.user });
 });
 
-app.post('/api/auth/logout', requireAuth, (req, res) => {
+app.post('/api/auth/logout', requireAuth, async (req, res) => {
   const token = req.headers.authorization?.split(' ')[1];
-  if (token) db.deleteSession(token);
-  res.json({ success: true });
+  try {
+    if (token) await db.deleteSession(token);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// --- Password Reset Endpoints ---
-app.post('/api/auth/forgot-password', (req, res) => {
+app.post('/api/auth/forgot-password', async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ error: 'Email is required' });
-  
-  const user = db.getUserByEmailOrUsername(email);
-  if (!user) return res.status(404).json({ error: 'User not found' });
-  
-  // Generate 6 digit OTP
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
-  db.saveOtp(user.email, otp);
-  
-  console.log(`\n==========================================`);
-  console.log(`[SECURE EMAIL MOCK] OTP for ${user.email} is: ${otp}`);
-  console.log(`==========================================\n`);
-  
-  // Returning the OTP just so the user can test the UI easily without a real SMTP setup
-  res.json({ message: 'OTP sent successfully', _dev_otp: otp });
+  try {
+    const user = await db.getUserByEmailOrUsername(email);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    await db.saveOtp(user.email, otp);
+    
+    console.log(`\n==========================================`);
+    console.log(`[SECURE EMAIL MOCK] OTP for ${user.email} is: ${otp}`);
+    console.log(`==========================================\n`);
+    
+    res.json({ message: 'OTP sent successfully', _dev_otp: otp });
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.post('/api/auth/verify-otp', (req, res) => {
+app.post('/api/auth/verify-otp', async (req, res) => {
   const { email, otp } = req.body;
   if (!email || !otp) return res.status(400).json({ error: 'Email and OTP are required' });
   
-  const resetToken = db.verifyOtp(email, otp);
-  if (!resetToken) return res.status(400).json({ error: 'Invalid or expired OTP' });
-  
-  res.json({ resetToken });
+  try {
+    const resetToken = await db.verifyOtp(email, otp);
+    if (!resetToken) return res.status(400).json({ error: 'Invalid or expired OTP' });
+    
+    res.json({ resetToken });
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.post('/api/auth/reset-password', (req, res) => {
+app.post('/api/auth/reset-password', async (req, res) => {
   const { email, resetToken, newPassword } = req.body;
   if (!email || !resetToken || !newPassword) return res.status(400).json({ error: 'Missing required fields' });
   
-  const isValid = db.verifyResetToken(email, resetToken);
-  if (!isValid) return res.status(400).json({ error: 'Invalid or expired reset session' });
-  
-  const hash = bcrypt.hashSync(newPassword, 10);
-  db.updatePasswordByEmail(email, hash);
-  
-  res.json({ success: true });
+  try {
+    const isValid = await db.verifyResetToken(email, resetToken);
+    if (!isValid) return res.status(400).json({ error: 'Invalid or expired reset session' });
+    
+    const hash = bcrypt.hashSync(newPassword, 10);
+    await db.updatePasswordByEmail(email, hash);
+    
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// --- Protected Routes Middleware ---
 app.use('/api/history', requireAuth);
 app.use('/api/collections', requireAuth);
 app.use('/api/members', requireAuth);
 app.use('/api/workspaces', requireAuth);
 
-// --- History Endpoints ---
-app.get('/api/history', (req, res) => {
-  const history = db.getHistory();
-  res.json(history);
+app.get('/api/history', async (req, res) => {
+  try { res.json(await db.getHistory()); } catch(e) { res.status(500).json({error:e.message}); }
 });
 
-// --- Collections Endpoints ---
-app.get('/api/collections', (req, res) => {
-  const collections = db.getCollections();
-  res.json(collections);
+app.get('/api/collections', async (req, res) => {
+  try { res.json(await db.getCollections()); } catch(e) { res.status(500).json({error:e.message}); }
 });
 
-app.post('/api/collections', (req, res) => {
+app.post('/api/collections', async (req, res) => {
   const { name, data } = req.body;
-  if (!name || !data) {
-    return res.status(400).json({ error: 'Name and Data are required.' });
-  }
-  const collection = db.createCollection(name, data);
-  res.status(201).json(collection);
+  if (!name || !data) return res.status(400).json({ error: 'Name and Data are required.' });
+  try { res.status(201).json(await db.createCollection(name, data)); } catch(e){ res.status(500).json({error:e.message}); }
 });
 
-app.put('/api/collections/:id', (req, res) => {
+app.put('/api/collections/:id', async (req, res) => {
   const { id } = req.params;
   const { data } = req.body;
   if (!data) return res.status(400).json({ error: 'Data is required.' });
-  const updated = db.updateCollection(id, data);
-  res.json(updated);
+  try { res.json(await db.updateCollection(id, data)); } catch(e){ res.status(500).json({error:e.message}); }
 });
 
-// --- Members Endpoints ---
-app.get('/api/members', (req, res) => {
-  const members = db.getMembers();
-  res.json(members);
+app.get('/api/members', async (req, res) => {
+  try { res.json(await db.getMembers()); } catch(e) { res.status(500).json({error:e.message}); }
 });
 
-app.post('/api/members', (req, res) => {
+app.post('/api/members', async (req, res) => {
   const { name, email, role } = req.body;
-  if (!name || !email) {
-    return res.status(400).json({ error: 'Name and Email are required.' });
-  }
-  const member = db.addMember({ name, email, role: role || 'READ ONLY' });
-  res.status(201).json(member);
+  if (!name || !email) return res.status(400).json({ error: 'Name and Email are required.' });
+  try { res.status(201).json(await db.addMember({ name, email, role: role || 'READ ONLY' })); } catch(e){ res.status(500).json({error:e.message}); }
 });
 
-app.put('/api/members/:id/role', (req, res) => {
+app.put('/api/members/:id/role', async (req, res) => {
   const { id } = req.params;
   const { role } = req.body;
   if (!role) return res.status(400).json({ error: 'Role is required.' });
-  const updated = db.updateMemberRole(id, role);
-  res.json(updated);
+  try { res.json(await db.updateMemberRole(id, role)); } catch(e){ res.status(500).json({error:e.message}); }
 });
 
-app.delete('/api/members/:id', (req, res) => {
+app.delete('/api/members/:id', async (req, res) => {
   const { id } = req.params;
-  db.removeMember(id);
-  res.status(204).send();
+  try { await db.removeMember(id); res.status(204).send(); } catch(e){ res.status(500).json({error:e.message}); }
 });
 
-// --- Workspaces Endpoints ---
-app.get('/api/workspaces', (req, res) => {
-  res.json(db.getWorkspaces());
+app.get('/api/workspaces', async (req, res) => {
+  try { res.json(await db.getWorkspaces()); } catch(e){ res.status(500).json({error:e.message}); }
 });
 
-app.post('/api/workspaces', (req, res) => {
+app.post('/api/workspaces', async (req, res) => {
   const { name } = req.body;
   if (!name) return res.status(400).json({ error: 'Name is required' });
-  res.status(201).json(db.addWorkspace(name));
+  try { res.status(201).json(await db.addWorkspace(name)); } catch(e){ res.status(500).json({error:e.message}); }
 });
 
-app.put('/api/workspaces/:id', (req, res) => {
+app.put('/api/workspaces/:id', async (req, res) => {
   const { name } = req.body;
   if (!name) return res.status(400).json({ error: 'Name is required' });
-  res.json(db.updateWorkspace(req.params.id, name));
+  try { res.json(await db.updateWorkspace(req.params.id, name)); } catch(e){ res.status(500).json({error:e.message}); }
 });
 
-app.delete('/api/workspaces/:id', (req, res) => {
-  const success = db.deleteWorkspace(req.params.id);
-  if (!success) return res.status(400).json({ error: 'Cannot delete default workspace' });
-  res.status(204).send();
+app.delete('/api/workspaces/:id', async (req, res) => {
+  try {
+    const success = await db.deleteWorkspace(req.params.id);
+    if (!success) return res.status(400).json({ error: 'Cannot delete default workspace' });
+    res.status(204).send();
+  } catch(e){ res.status(500).json({error:e.message}); }
 });
 
-// Catch-all to serve React app for non-API routes
 app.use((req, res, next) => {
   if (req.path.startsWith('/api/')) return next();
   res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));

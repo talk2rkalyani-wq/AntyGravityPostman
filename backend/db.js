@@ -1,31 +1,37 @@
-const Database = require('better-sqlite3');
-const path = require('path');
+const { Pool } = require('pg');
 const { v4: uuidv4 } = require('uuid');
 
-let db;
+let pool;
 
-function initDb() {
-  const dataDir = process.env.DATA_DIR || __dirname;
-  const dbPath = path.resolve(dataDir, 'postman_clone.db');
-  db = new Database(dbPath);
+async function initDb() {
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) {
+    console.warn("DATABASE_URL is not set. Database will not connect.");
+    // We exit. If they don't set this on Render, it will crash nicely or error on queries.
+    return;
+  }
+  
+  pool = new Pool({
+    connectionString,
+    ssl: { rejectUnauthorized: false }
+  });
 
-  // Create tables if they don't exist
-  db.exec(`
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS history (
       id TEXT PRIMARY KEY,
       url TEXT,
       method TEXT,
       status INTEGER,
       time INTEGER,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
 
     CREATE TABLE IF NOT EXISTS collections (
       id TEXT PRIMARY KEY,
       name TEXT,
-      data JSON,
+      data JSONB,
       workspace_id TEXT DEFAULT 'default',
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
 
     CREATE TABLE IF NOT EXISTS members (
@@ -33,13 +39,13 @@ function initDb() {
       name TEXT,
       email TEXT,
       role TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
 
     CREATE TABLE IF NOT EXISTS workspaces (
       id TEXT PRIMARY KEY,
       name TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
 
     CREATE TABLE IF NOT EXISTS users (
@@ -47,219 +53,186 @@ function initDb() {
       username TEXT UNIQUE,
       email TEXT UNIQUE,
       password_hash TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
 
     CREATE TABLE IF NOT EXISTS sessions (
       token TEXT PRIMARY KEY,
-      user_id TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY(user_id) REFERENCES users(id)
+      user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
 
     CREATE TABLE IF NOT EXISTS password_resets (
       email TEXT PRIMARY KEY,
       otp TEXT,
       reset_token TEXT,
-      expires_at DATETIME
+      expires_at TIMESTAMP
     );
   `);
 
-  // Ensure 'My Workspace' exists
-  const wpStmt = db.prepare('SELECT count(*) as cnt FROM workspaces');
-  if (wpStmt.get().cnt === 0) {
-    const insertWp = db.prepare("INSERT INTO workspaces (id, name) VALUES ('default', 'My Workspace')");
-    insertWp.run();
+  const wpRes = await pool.query('SELECT count(*) as cnt FROM workspaces');
+  if (parseInt(wpRes.rows[0].cnt) === 0) {
+    await pool.query("INSERT INTO workspaces (id, name) VALUES ('default', 'My Workspace') ON CONFLICT DO NOTHING");
   }
 }
 
-function saveHistory({ url, method, status, time }) {
-  const stmt = db.prepare('INSERT INTO history (id, url, method, status, time) VALUES (?, ?, ?, ?, ?)');
-  stmt.run(uuidv4(), url, method, status, time);
+async function saveHistory({ url, method, status, time }) {
+  if (!pool) return;
+  await pool.query('INSERT INTO history (id, url, method, status, time) VALUES ($1, $2, $3, $4, $5)', [uuidv4(), url, method, status, time]);
 }
 
-function getHistory() {
-  const stmt = db.prepare('SELECT * FROM history ORDER BY created_at DESC LIMIT 100');
-  return stmt.all();
+async function getHistory() {
+  if (!pool) return [];
+  const res = await pool.query('SELECT * FROM history ORDER BY created_at DESC LIMIT 100');
+  return res.rows;
 }
 
-function getCollections() {
-  const stmt = db.prepare('SELECT * FROM collections ORDER BY created_at DESC');
-  return stmt.all();
+async function getCollections() {
+  if (!pool) return [];
+  const res = await pool.query('SELECT * FROM collections ORDER BY created_at DESC');
+  return res.rows;
 }
 
-function createCollection(name, data) {
+async function createCollection(name, data) {
   const id = uuidv4();
-  const stmt = db.prepare('INSERT INTO collections (id, name, data) VALUES (?, ?, ?)');
-  stmt.run(id, name, JSON.stringify(data));
+  await pool.query('INSERT INTO collections (id, name, data) VALUES ($1, $2, $3)', [id, name, JSON.stringify(data)]);
   return { id, name, data };
 }
 
-function updateCollection(id, data) {
-  const stmt = db.prepare('UPDATE collections SET data = ? WHERE id = ?');
-  stmt.run(JSON.stringify(data), id);
+async function updateCollection(id, data) {
+  await pool.query('UPDATE collections SET data = $1 WHERE id = $2', [JSON.stringify(data), id]);
   return { id, data };
 }
 
-// --- Members ---
-function getMembers() {
-  const stmt = db.prepare('SELECT * FROM members ORDER BY created_at ASC');
-  return stmt.all();
+async function getMembers() {
+  if (!pool) return [];
+  const res = await pool.query('SELECT * FROM members ORDER BY created_at ASC');
+  return res.rows;
 }
 
-function addMember({ name, email, role }) {
+async function addMember({ name, email, role }) {
   const id = uuidv4();
-  const stmt = db.prepare('INSERT INTO members (id, name, email, role) VALUES (?, ?, ?, ?)');
-  stmt.run(id, name, email, role);
+  await pool.query('INSERT INTO members (id, name, email, role) VALUES ($1, $2, $3, $4)', [id, name, email, role]);
   return { id, name, email, role };
 }
 
-function updateMemberRole(id, role) {
-  const stmt = db.prepare('UPDATE members SET role = ? WHERE id = ?');
-  stmt.run(role, id);
+async function updateMemberRole(id, role) {
+  await pool.query('UPDATE members SET role = $1 WHERE id = $2', [role, id]);
   return { id, role };
 }
 
-function removeMember(id) {
-  const stmt = db.prepare('DELETE FROM members WHERE id = ?');
-  stmt.run(id);
+async function removeMember(id) {
+  await pool.query('DELETE FROM members WHERE id = $1', [id]);
   return { id };
 }
 
-// --- Workspaces ---
-function getWorkspaces() {
-  const stmt = db.prepare('SELECT * FROM workspaces ORDER BY created_at ASC');
-  return stmt.all();
+async function getWorkspaces() {
+  if (!pool) return [];
+  const res = await pool.query('SELECT * FROM workspaces ORDER BY created_at ASC');
+  return res.rows;
 }
 
-function addWorkspace(name) {
+async function addWorkspace(name) {
   const id = uuidv4();
-  const stmt = db.prepare('INSERT INTO workspaces (id, name) VALUES (?, ?)');
-  stmt.run(id, name);
+  await pool.query('INSERT INTO workspaces (id, name) VALUES ($1, $2)', [id, name]);
   return { id, name };
 }
 
-function updateWorkspace(id, name) {
-  const stmt = db.prepare('UPDATE workspaces SET name = ? WHERE id = ?');
-  stmt.run(name, id);
+async function updateWorkspace(id, name) {
+  await pool.query('UPDATE workspaces SET name = $1 WHERE id = $2', [name, id]);
   return { id, name };
 }
 
-function deleteWorkspace(id) {
-  if (id === 'default') return false; // Prevent deleting default
-  const stmt = db.prepare('DELETE FROM workspaces WHERE id = ?');
-  stmt.run(id);
+async function deleteWorkspace(id) {
+  if (id === 'default') return false;
+  await pool.query('DELETE FROM workspaces WHERE id = $1', [id]);
   return true;
 }
 
-// --- Auth ---
-function createUser(username, email, passwordHash) {
+async function createUser(username, email, passwordHash) {
   try {
     const id = uuidv4();
-    const stmt = db.prepare('INSERT INTO users (id, username, email, password_hash) VALUES (?, ?, ?, ?)');
-    stmt.run(id, username, email, passwordHash);
+    await pool.query('INSERT INTO users (id, username, email, password_hash) VALUES ($1, $2, $3, $4)', [id, username, email, passwordHash]);
     return { id, username, email };
   } catch (err) {
-    if (err.message.includes('UNIQUE constraint failed')) {
+    if (err.code === '23505') { // Unique violation in Postgres
       throw new Error('Username or Email already exists');
     }
     throw err;
   }
 }
 
-function getUserByEmailOrUsername(identifier) {
-  const stmt = db.prepare('SELECT * FROM users WHERE email = ? OR username = ?');
-  return stmt.get(identifier, identifier);
+async function getUserByEmailOrUsername(identifier) {
+  if (!pool) return null;
+  const res = await pool.query('SELECT * FROM users WHERE email = $1 OR username = $2', [identifier, identifier]);
+  return res.rows[0];
 }
 
-function getUserById(id) {
-  const stmt = db.prepare('SELECT id, username, email, created_at FROM users WHERE id = ?');
-  return stmt.get(id);
+async function getUserById(id) {
+  const res = await pool.query('SELECT id, username, email, created_at FROM users WHERE id = $1', [id]);
+  return res.rows[0];
 }
 
-function createSession(userId) {
-  const token = uuidv4(); // Use UUID as Bearer token for simplicity/security
-  const stmt = db.prepare('INSERT INTO sessions (token, user_id) VALUES (?, ?)');
-  stmt.run(token, userId);
+async function createSession(userId) {
+  const token = uuidv4();
+  await pool.query('INSERT INTO sessions (token, user_id) VALUES ($1, $2)', [token, userId]);
   return token;
 }
 
-function getUserBySession(token) {
-  const stmt = db.prepare(`
+async function getUserBySession(token) {
+  if (!pool) return null;
+  const res = await pool.query(`
     SELECT users.id, users.username, users.email 
     FROM users 
     JOIN sessions ON users.id = sessions.user_id 
-    WHERE sessions.token = ?
-  `);
-  return stmt.get(token);
+    WHERE sessions.token = $1
+  `, [token]);
+  return res.rows[0];
 }
 
-function deleteSession(token) {
-  const stmt = db.prepare('DELETE FROM sessions WHERE token = ?');
-  stmt.run(token);
+async function deleteSession(token) {
+  if (!pool) return;
+  await pool.query('DELETE FROM sessions WHERE token = $1', [token]);
 }
 
-// --- Password Reset ---
-function saveOtp(email, otp) {
-  const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 mins
-  const stmt = db.prepare(`
+async function saveOtp(email, otp) {
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+  await pool.query(`
     INSERT INTO password_resets (email, otp, expires_at) 
-    VALUES (?, ?, ?) 
-    ON CONFLICT(email) DO UPDATE SET otp=excluded.otp, expires_at=excluded.expires_at, reset_token=NULL
-  `);
-  stmt.run(email, otp, expiresAt);
+    VALUES ($1, $2, $3) 
+    ON CONFLICT (email) DO UPDATE SET otp = EXCLUDED.otp, expires_at = EXCLUDED.expires_at, reset_token = NULL
+  `, [email, otp, expiresAt]);
 }
 
-function verifyOtp(email, otp) {
-  const stmt = db.prepare('SELECT * FROM password_resets WHERE email = ? AND otp = ? AND expires_at > ?');
-  const record = stmt.get(email, otp, new Date().toISOString());
-  if (!record) return null;
+async function verifyOtp(email, otp) {
+  const now = new Date().toISOString();
+  const res = await pool.query('SELECT * FROM password_resets WHERE email = $1 AND otp = $2 AND expires_at > $3', [email, otp, now]);
+  if (res.rows.length === 0) return null;
   
-  // Valid OTP, now generate a reset token
   const resetToken = uuidv4();
-  db.prepare('UPDATE password_resets SET reset_token = ?, otp = NULL WHERE email = ?').run(resetToken, email);
+  await pool.query('UPDATE password_resets SET reset_token = $1, otp = NULL WHERE email = $2', [resetToken, email]);
   return resetToken;
 }
 
-function verifyResetToken(email, resetToken) {
-  const stmt = db.prepare('SELECT * FROM password_resets WHERE email = ? AND reset_token = ? AND expires_at > ?');
-  return !!stmt.get(email, resetToken, new Date().toISOString());
+async function verifyResetToken(email, resetToken) {
+  const now = new Date().toISOString();
+  const res = await pool.query('SELECT * FROM password_resets WHERE email = $1 AND reset_token = $2 AND expires_at > $3', [email, resetToken, now]);
+  return res.rows.length > 0;
 }
 
-function updatePasswordByEmail(email, passwordHash) {
-  db.prepare('UPDATE users SET password_hash = ? WHERE email = ?').run(passwordHash, email);
-  db.prepare('DELETE FROM password_resets WHERE email = ?').run(email);
-  
-  // Clear any existing sessions for this user so they are forced to log in again
-  const user = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
-  if (user) {
-    db.prepare('DELETE FROM sessions WHERE user_id = ?').run(user.id);
+async function updatePasswordByEmail(email, passwordHash) {
+  await pool.query('UPDATE users SET password_hash = $1 WHERE email = $2', [passwordHash, email]);
+  await pool.query('DELETE FROM password_resets WHERE email = $1', [email]);
+  const userRes = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+  if (userRes.rows.length > 0) {
+    await pool.query('DELETE FROM sessions WHERE user_id = $1', [userRes.rows[0].id]);
   }
 }
 
 module.exports = {
-  initDb,
-  saveHistory,
-  getHistory,
-  getCollections,
-  createCollection,
-  updateCollection,
-  getMembers,
-  addMember,
-  updateMemberRole,
-  removeMember,
-  getWorkspaces,
-  addWorkspace,
-  updateWorkspace,
-  deleteWorkspace,
-  createUser,
-  getUserByEmailOrUsername,
-  getUserById,
-  createSession,
-  getUserBySession,
-  deleteSession,
-  saveOtp,
-  verifyOtp,
-  verifyResetToken,
+  initDb, saveHistory, getHistory, getCollections, createCollection, updateCollection,
+  getMembers, addMember, updateMemberRole, removeMember, getWorkspaces, addWorkspace,
+  updateWorkspace, deleteWorkspace, createUser, getUserByEmailOrUsername, getUserById,
+  createSession, getUserBySession, deleteSession, saveOtp, verifyOtp, verifyResetToken,
   updatePasswordByEmail
 };
