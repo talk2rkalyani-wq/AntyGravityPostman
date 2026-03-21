@@ -20,7 +20,7 @@ export default function Signup({ onLogin, onNavigateLogin }) {
       return;
     }
 
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{6,}$/;
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{6,}$/;
     if (!passwordRegex.test(password)) {
       setError('Password must be at least 6 characters and include uppercase, lowercase, numbers, and symbols.');
       return;
@@ -127,7 +127,7 @@ export default function Signup({ onLogin, onNavigateLogin }) {
                 </button>
               </div>
               <div className="bg-white/5 border border-purple-500/30 rounded p-3 text-xs text-purple-200/70 mt-3">
-                <strong>Password Guidelines:</strong> Minimum 6 characters combining uppercase, lowercase, numbers, and symbols (@$!%*?&).
+                <strong>Password Guidelines:</strong> Minimum 6 characters combining uppercase, lowercase, numbers, and symbols.
               </div>
             </div>
 

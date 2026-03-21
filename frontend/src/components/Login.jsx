@@ -99,7 +99,7 @@ export default function Login({ onLogin, onNavigateSignup, onNavigateForgot }) {
                 </button>
               </div>
               <div className="bg-white/5 border border-cyan-500/30 rounded p-3 text-xs text-cyan-200/70 mt-3">
-                <strong>Password Guidelines:</strong> Minimum 6 characters combining uppercase, lowercase, numbers, and symbols (@$!%*?&).
+                <strong>Password Guidelines:</strong> Minimum 6 characters combining uppercase, lowercase, numbers, and symbols.
               </div>
             </div>
 

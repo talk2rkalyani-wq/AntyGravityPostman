@@ -75,7 +75,7 @@ export default function ForgotPassword({ onNavigateLogin }) {
     setSuccessMsg('');
 
     // Password Guideline Validation
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{6,}$/;
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{6,}$/;
     if (!passwordRegex.test(newPassword)) {
       setError('Password must be at least 6 characters and include uppercase, lowercase, numbers, and symbols.');
       return;
@@ -242,7 +242,7 @@ export default function ForgotPassword({ onNavigateLogin }) {
             <form onSubmit={handlePasswordSubmit} className="space-y-4">
               
               <div className="bg-white/5 border border-amber-500/30 rounded p-3 text-xs text-amber-200/70 mb-2">
-                <strong>Password Guidelines:</strong> Minimum 6 characters combining uppercase, lowercase, numbers, and symbols (@$!%*?&).
+                <strong>Password Guidelines:</strong> Minimum 6 characters combining uppercase, lowercase, numbers, and symbols.
               </div>
 
               <div>
