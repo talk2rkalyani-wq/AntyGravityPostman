@@ -5,7 +5,8 @@ const { v4: uuidv4 } = require('uuid');
 let db;
 
 function initDb() {
-  const dbPath = path.resolve(__dirname, 'postman_clone.db');
+  const dataDir = process.env.DATA_DIR || __dirname;
+  const dbPath = path.resolve(dataDir, 'postman_clone.db');
   db = new Database(dbPath);
 
   // Create tables if they don't exist
