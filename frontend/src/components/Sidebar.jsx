@@ -75,17 +75,7 @@ function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAcc
          </button>
       </div>
 
-      <div className="p-4 border-b border-[var(--border-color)]">
-        <div className="flex items-center gap-2">
-          <Logo className="w-6 h-6" />
-          <span className="font-bold text-xl tracking-wide bg-clip-text text-transparent bg-gradient-to-r from-[#06B6D4] to-[#8B5CF6]">
-            NeonAPI
-          </span>
-        </div>
-        <button className="btn-secondary p-2 flex-center" title="New Request">
-          <Plus size={16} />
-        </button>
-      </div>
+
 
       <div className="tab-nav mb-2">
         <div 
@@ -108,7 +98,7 @@ function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAcc
           <input 
             type="text" 
             placeholder="Filter..." 
-            className="input-field w-full pl-9 py-1.5 text-sm bg-[var(--bg-primary)]"
+            className="input-field w-full !pl-9 py-1.5 text-sm bg-[var(--bg-primary)]"
           />
         </div>
       </div>
