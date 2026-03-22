@@ -229,6 +229,47 @@ function App() {
      }
   };
 
+   const handleImportCompleteCollection = async (colName, requestsArray) => {
+     try {
+        const colRes = await fetch('/api/collections', {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+        const collections = await colRes.json();
+        const existing = collections.find(c => c.name === colName);
+
+        const dataToSave = { requests: requestsArray };
+
+        if (existing) {
+           const existingData = typeof existing.data === 'string' ? JSON.parse(existing.data) : existing.data;
+           if (!existingData.requests) existingData.requests = [];
+           existingData.requests.push(...requestsArray);
+           
+           await fetch(`/api/collections/${existing.id}`, {
+              method: 'PUT',
+              headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+              },
+              body: JSON.stringify({ data: existingData })
+           });
+        } else {
+           await fetch('/api/collections', {
+              method: 'POST',
+              headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+              },
+              body: JSON.stringify({ name: colName, data: dataToSave })
+           });
+        }
+        
+        setActiveNavTab('Collections');
+        setHistoryRefreshTrigger(prev => prev + 1);
+     } catch(e) {
+        alert('Failed to import complete collection: ' + e.message);
+     }
+  };
+
   const handleImportAndSave = async (parsedRequest, reqName, colName) => {
      const dataToSave = {
         ...parsedRequest,
@@ -365,6 +406,7 @@ function App() {
             setResponseState(null);
           }}
           onImportAndSave={handleImportAndSave}
+          onImportCompleteCollection={handleImportCompleteCollection}
         />
       )}
     </div>

@@ -70,7 +70,7 @@ function parseCurl(curlCommand) {
   };
 }
 
-function ImportModal({ onClose, onImportRequest, onImportAndSave }) {
+function ImportModal({ onClose, onImportRequest, onImportAndSave, onImportCompleteCollection }) {
   const [step, setStep] = useState(1);
   const [inputText, setInputText] = useState('');
   const [parsedRequest, setParsedRequest] = useState(null);
@@ -79,6 +79,11 @@ function ImportModal({ onClose, onImportRequest, onImportAndSave }) {
   const [requestName, setRequestName] = useState('');
   const [collections, setCollections] = useState([]);
   const [selectedCollection, setSelectedCollection] = useState('');
+
+  // File Upload State
+  const fileInputRef = React.useRef(null);
+  const folderInputRef = React.useRef(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   useEffect(() => {
     if (step === 2) {
@@ -117,6 +122,109 @@ function ImportModal({ onClose, onImportRequest, onImportAndSave }) {
     onClose();
   };
 
+  const extractRequestsFromPostman = (itemArray, parentPath = '') => {
+      let requests = [];
+      for (const item of itemArray) {
+         if (item.request) {
+            let method = item.request.method || 'GET';
+            let url = item.request.url?.raw || item.request.url || '';
+            let parsedName = parentPath ? `${parentPath} / ${item.name}` : item.name;
+            
+            let headers = [{ key: '', value: '', description: '', active: true }];
+            if (item.request.header) {
+               headers = item.request.header.map(h => ({
+                  key: h.key, value: h.value, description: h.description || '', active: true
+               }));
+            }
+            if (headers.length === 0) headers.push({ key: '', value: '', description: '', active: true });
+
+            let bodyType = 'none';
+            let bodyRaw = '';
+            let bodyFormData = [{ key: '', value: '', description: '', active: true }];
+            let bodyUrlEncoded = [{ key: '', value: '', description: '', active: true }];
+            
+            if (item.request.body) {
+               if (item.request.body.mode === 'raw') {
+                  bodyType = 'raw';
+                  bodyRaw = item.request.body.raw || '';
+               } else if (item.request.body.mode === 'formdata') {
+                  bodyType = 'form-data';
+                  bodyFormData = item.request.body.formdata.map(f => ({
+                     key: f.key, value: f.value, description: f.description || '', active: true
+                  }));
+               } else if (item.request.body.mode === 'urlencoded') {
+                  bodyType = 'x-www-form-urlencoded';
+                  bodyUrlEncoded = item.request.body.urlencoded.map(f => ({
+                     key: f.key, value: f.value, description: f.description || '', active: true
+                  }));
+               }
+            }
+            if (bodyFormData.length === 0) bodyFormData.push({ key: '', value: '', description: '', active: true });
+            if (bodyUrlEncoded.length === 0) bodyUrlEncoded.push({ key: '', value: '', description: '', active: true });
+
+            let params = [{ key: '', value: '', description: '', active: true }];
+            if (item.request.url?.query) {
+               params = item.request.url.query.map(q => ({
+                  key: q.key, value: q.value, description: q.description || '', active: true
+               }));
+            }
+            if (params.length === 0) params.push({ key: '', value: '', description: '', active: true });
+
+            requests.push({
+               name: parsedName,
+               method, url, headers, bodyType, bodyRaw, bodyFormData, bodyUrlEncoded, params,
+               bodyGraphQLQuery: '', bodyGraphQLVariables: '', authType: 'No Auth', authData: {}, activeTab: 'Params'
+            });
+         } else if (item.item) {
+            const newPath = parentPath ? `${parentPath} / ${item.name}` : item.name;
+            requests = requests.concat(extractRequestsFromPostman(item.item, newPath));
+         }
+      }
+      return requests;
+   };
+
+  const processFiles = async (fileList) => {
+      let files = Array.from(fileList).filter(f => f.name.endsWith('.json'));
+      if (files.length === 0) {
+         alert("No JSON files found to import.");
+         return;
+      }
+      for (const file of files) {
+         const reader = new FileReader();
+         reader.onload = async (e) => {
+            try {
+               const content = JSON.parse(e.target.result);
+               if (content.info && content.item) {
+                  const colName = content.info.name || file.name.replace('.json', '');
+                  const requests = extractRequestsFromPostman(content.item);
+                  if (requests.length > 0) {
+                     await onImportCompleteCollection(colName, requests);
+                     onClose();
+                  } else {
+                     alert(`Found empty collection in ${file.name}`);
+                  }
+               } else if (content.requests && Array.isArray(content.requests)) {
+                  await onImportCompleteCollection(file.name.replace('.json', ''), content.requests);
+                  onClose();
+               } else {
+                  alert(`File ${file.name} does not seem to be a valid Postman collection.`);
+               }
+            } catch (err) {
+               alert(`Error parsing ${file.name}: ` + err.message);
+            }
+         };
+         reader.readAsText(file);
+      }
+  };
+
+  const handleDragOver = (e) => { e.preventDefault(); setIsDragging(true); };
+  const handleDragLeave = (e) => { e.preventDefault(); setIsDragging(false); };
+  const handleDrop = async (e) => {
+     e.preventDefault(); setIsDragging(false);
+     if (e.dataTransfer.files?.length > 0) { await processFiles(e.dataTransfer.files); }
+  };
+
+
   return (
     <div className="absolute inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
       <div className="bg-white rounded-lg shadow-2xl w-full max-w-3xl flex flex-col pt-4 overflow-hidden" 
@@ -145,12 +253,21 @@ function ImportModal({ onClose, onImportRequest, onImportAndSave }) {
             </div>
 
             {/* Dropzone */}
-            <div className="flex-1 px-6 pb-6">
-               <div className="h-full border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center bg-gray-50/50 hover:bg-gray-50 transition-colors cursor-pointer">
-                  <UploadCloud size={48} className="text-gray-400 mb-4 stroke-1" />
-                  <div className="text-lg font-semibold text-gray-700">Drop anywhere to import</div>
-                  <div className="text-sm text-gray-500 mt-1">
-                     Or select <span className="text-orange-500 font-medium hover:underline">files</span> or <span className="text-orange-500 font-medium hover:underline">folders</span>
+            <div className="flex-1 px-6 pb-6"
+                 onDragOver={handleDragOver}
+                 onDragLeave={handleDragLeave}
+                 onDrop={handleDrop}
+            >
+               <input type="file" ref={fileInputRef} className="hidden" multiple accept=".json" onChange={(e) => processFiles(e.target.files)} />
+               <input type="file" ref={folderInputRef} className="hidden" webkitdirectory="true" directory="true" onChange={(e) => processFiles(e.target.files)} />
+               
+               <div className={`h-full border-2 border-dashed ${isDragging ? 'border-orange-500 bg-orange-50' : 'border-gray-300 bg-gray-50/50 hover:bg-gray-50'} rounded-lg flex flex-col items-center justify-center transition-colors cursor-pointer`}
+                    onClick={() => fileInputRef.current?.click()}
+               >
+                  <UploadCloud size={48} className={`${isDragging ? 'text-orange-500' : 'text-gray-400'} mb-4 stroke-1`} />
+                  <div className="text-lg font-semibold text-gray-700">{isDragging ? 'Drop folders or files here...' : 'Drop anywhere to import'}</div>
+                  <div className="text-sm text-gray-500 mt-1" onClick={(e) => e.stopPropagation()}>
+                     Or select <span className="text-orange-500 font-medium hover:underline cursor-pointer" onClick={() => fileInputRef.current?.click()}>files</span> or <span className="text-orange-500 font-medium hover:underline cursor-pointer" onClick={() => folderInputRef.current?.click()}>folders</span>
                   </div>
                </div>
             </div>
