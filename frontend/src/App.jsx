@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Plus, X } from 'lucide-react';
+import { Plus, X, Globe, Hexagon, Zap, Database, MoreHorizontal } from 'lucide-react';
+import Logo from './components/Logo';
 import Sidebar from './components/Sidebar';
 import RequestEditor from './components/RequestEditor';
 import ResponseViewer from './components/ResponseViewer';
@@ -448,6 +449,13 @@ function App() {
             
             {/* Top Tab Bar */}
             <div className="flex items-center overflow-x-auto border-b border-[var(--border-color)] bg-[var(--bg-secondary)] hide-scrollbar shrink-0 h-[42px] pt-1">
+               <button 
+                  className="p-2 mr-2 ml-2 text-[var(--accent-cyan)] hover:text-white hover:bg-[var(--accent-cyan)] rounded transition-colors shrink-0"
+                  onClick={() => handleNewRequest('http')}
+                  title="Open new tab"
+               >
+                  <Plus size={16} />
+               </button>
                {tabs.map((tab) => {
                   let displayUrl = tab.name;
                   if (tab.name === 'Untitled Request' && tab.url) {
@@ -468,13 +476,11 @@ function App() {
                         onClick={(e) => {
                            e.stopPropagation();
                            const newTabs = tabs.filter(t => t.id !== tab.id);
-                           if (newTabs.length === 0) {
-                              const newTab = createNewTab();
-                              setTabs([newTab]);
-                              setActiveTabId(newTab.id);
-                           } else {
-                              setTabs(newTabs);
+                           setTabs(newTabs);
+                           if (newTabs.length > 0) {
                               if (activeTabId === tab.id) setActiveTabId(newTabs[newTabs.length - 1].id);
+                           } else {
+                              setActiveTabId(null);
                            }
                         }}
                      >
@@ -482,16 +488,32 @@ function App() {
                      </button>
                   </div>
                )})}
-               <button 
-                  className="p-2 ml-1 text-[var(--text-secondary)] hover:text-[#06B6D4] hover:bg-[var(--bg-tertiary)] rounded transition-colors shrink-0"
-                  onClick={() => handleNewRequest('http')}
-                  title="Open new tab"
-               >
-                  <Plus size={16} />
-               </button>
             </div>
-            <div style={{ flex: `0 0 ${topPaneHeight}` }} className="flex flex-col shrink-0 relative overflow-hidden transition-none">
-              <RequestEditor 
+
+            {tabs.length === 0 ? (
+               <div className="flex-1 flex flex-col items-center justify-center bg-[var(--bg-primary)] text-[var(--text-primary)] relative border-t border-[var(--border-color)]">
+                   <div className="relative w-48 h-48 mb-8 flex items-center justify-center bg-[var(--bg-secondary)] rounded-full shadow-[inset_0_0_50px_rgba(0,0,0,0.5)]">
+                      <Logo className="w-24 h-24 opacity-10 text-[var(--text-muted)]" />
+                   </div>
+                   <button 
+                      onClick={() => handleNewRequest('modal')}
+                      className="flex items-center gap-2 bg-[var(--bg-secondary)] border border-[var(--border-color)] hover:border-[var(--text-muted)] px-5 py-2.5 rounded font-medium text-sm transition-colors mb-10 shadow-sm"
+                   >
+                     🚀 Open Workspace Overview
+                   </button>
+                   <div className="text-[var(--text-secondary)] text-sm mb-4">Create a new request:</div>
+                   <div className="flex items-center gap-6 text-[var(--text-muted)]">
+                      <button onClick={() => handleNewRequest('http')} className="hover:text-[var(--text-primary)] transition-colors p-2" title="HTTP Request"><Globe strokeWidth={1.5} size={22} /></button>
+                      <button onClick={() => handleNewRequest('modal')} className="hover:text-[var(--text-primary)] transition-colors p-2" title="GraphQL Request"><Hexagon strokeWidth={1.5} size={22} /></button>
+                      <button onClick={() => handleNewRequest('modal')} className="hover:text-[var(--text-primary)] transition-colors p-2" title="WebSocket Request"><Zap strokeWidth={1.5} size={22} /></button>
+                      <button onClick={() => handleNewRequest('modal')} className="hover:text-[var(--text-primary)] transition-colors p-2" title="gRPC Request"><Database strokeWidth={1.5} size={22} /></button>
+                      <button onClick={() => handleNewRequest('modal')} className="hover:text-[var(--text-primary)] transition-colors p-2" title="More options"><MoreHorizontal strokeWidth={1.5} size={22} /></button>
+                   </div>
+               </div>
+            ) : (
+               <>
+                 <div style={{ flex: `0 0 ${topPaneHeight}` }} className="flex flex-col shrink-0 relative overflow-hidden transition-none">
+                   <RequestEditor 
                 requestState={activeRequest} 
                 setRequestState={updateActiveRequest} 
                 onSend={executeRequest} 
@@ -514,6 +536,8 @@ function App() {
                 loading={loading} 
               />
             </div>
+               </>
+            )}
           </main>
         )}
       </div>
