@@ -65,6 +65,12 @@ async function initDb() {
     );
   `);
 
+  try {
+    db.exec('ALTER TABLE history ADD COLUMN user_id TEXT REFERENCES users(id)');
+    db.exec('ALTER TABLE collections ADD COLUMN user_id TEXT REFERENCES users(id)');
+    db.exec('ALTER TABLE workspaces ADD COLUMN user_id TEXT REFERENCES users(id)');
+  } catch(e) {}
+
   // Ensure 'My Workspace' exists
   const wpStmt = db.prepare('SELECT count(*) as cnt FROM workspaces');
   if (wpStmt.get().cnt === 0) {
@@ -73,31 +79,34 @@ async function initDb() {
   }
 }
 
-function saveHistory({ url, method, status, time }) {
-  const stmt = db.prepare('INSERT INTO history (id, url, method, status, time) VALUES (?, ?, ?, ?, ?)');
-  stmt.run(uuidv4(), url, method, status, time);
+function saveHistory({ url, method, status, time, userId }) {
+  if (!userId) return;
+  const stmt = db.prepare('INSERT INTO history (id, url, method, status, time, user_id) VALUES (?, ?, ?, ?, ?, ?)');
+  stmt.run(uuidv4(), url, method, status, time, userId);
 }
 
-function getHistory() {
-  const stmt = db.prepare('SELECT * FROM history ORDER BY created_at DESC LIMIT 100');
-  return stmt.all();
+function getHistory(userId) {
+  if (!userId) return [];
+  const stmt = db.prepare('SELECT * FROM history WHERE user_id = ? ORDER BY created_at DESC LIMIT 100');
+  return stmt.all(userId);
 }
 
-function getCollections() {
-  const stmt = db.prepare('SELECT * FROM collections ORDER BY created_at DESC');
-  return stmt.all();
+function getCollections(userId) {
+  if (!userId) return [];
+  const stmt = db.prepare('SELECT * FROM collections WHERE user_id = ? ORDER BY created_at DESC');
+  return stmt.all(userId);
 }
 
-function createCollection(name, data) {
+function createCollection(name, data, userId) {
   const id = uuidv4();
-  const stmt = db.prepare('INSERT INTO collections (id, name, data) VALUES (?, ?, ?)');
-  stmt.run(id, name, JSON.stringify(data));
+  const stmt = db.prepare('INSERT INTO collections (id, name, data, user_id) VALUES (?, ?, ?, ?)');
+  stmt.run(id, name, JSON.stringify(data), userId);
   return { id, name, data };
 }
 
-function updateCollection(id, data) {
-  const stmt = db.prepare('UPDATE collections SET data = ? WHERE id = ?');
-  stmt.run(JSON.stringify(data), id);
+function updateCollection(id, data, userId) {
+  const stmt = db.prepare('UPDATE collections SET data = ? WHERE id = ? AND user_id = ?');
+  stmt.run(JSON.stringify(data), id, userId);
   return { id, data };
 }
 
@@ -127,28 +136,29 @@ function removeMember(id) {
 }
 
 // --- Workspaces ---
-function getWorkspaces() {
-  const stmt = db.prepare('SELECT * FROM workspaces ORDER BY created_at ASC');
-  return stmt.all();
+function getWorkspaces(userId) {
+  if (!userId) return [];
+  const stmt = db.prepare('SELECT * FROM workspaces WHERE user_id = ? OR id = ? ORDER BY created_at ASC');
+  return stmt.all(userId, 'default');
 }
 
-function addWorkspace(name) {
+function addWorkspace(name, userId) {
   const id = uuidv4();
-  const stmt = db.prepare('INSERT INTO workspaces (id, name) VALUES (?, ?)');
-  stmt.run(id, name);
+  const stmt = db.prepare('INSERT INTO workspaces (id, name, user_id) VALUES (?, ?, ?)');
+  stmt.run(id, name, userId);
   return { id, name };
 }
 
-function updateWorkspace(id, name) {
-  const stmt = db.prepare('UPDATE workspaces SET name = ? WHERE id = ?');
-  stmt.run(name, id);
+function updateWorkspace(id, name, userId) {
+  const stmt = db.prepare('UPDATE workspaces SET name = ? WHERE id = ? AND user_id = ?');
+  stmt.run(name, id, userId);
   return { id, name };
 }
 
-function deleteWorkspace(id) {
+function deleteWorkspace(id, userId) {
   if (id === 'default') return false; // Prevent deleting default
-  const stmt = db.prepare('DELETE FROM workspaces WHERE id = ?');
-  stmt.run(id);
+  const stmt = db.prepare('DELETE FROM workspaces WHERE id = ? AND user_id = ?');
+  stmt.run(id, userId);
   return true;
 }
 

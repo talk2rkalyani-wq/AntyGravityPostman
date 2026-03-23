@@ -70,37 +70,43 @@ async function initDb() {
     );
   `);
 
+  try {
+    await pool.query('ALTER TABLE history ADD COLUMN IF NOT EXISTS user_id TEXT REFERENCES users(id) ON DELETE CASCADE;');
+    await pool.query('ALTER TABLE collections ADD COLUMN IF NOT EXISTS user_id TEXT REFERENCES users(id) ON DELETE CASCADE;');
+    await pool.query('ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS user_id TEXT REFERENCES users(id) ON DELETE CASCADE;');
+  } catch(e) { /* ignore pg versions that lack IF NOT EXISTS or other conflicts */ }
+
   const wpRes = await pool.query('SELECT count(*) as cnt FROM workspaces');
   if (parseInt(wpRes.rows[0].cnt) === 0) {
     await pool.query("INSERT INTO workspaces (id, name) VALUES ('default', 'My Workspace') ON CONFLICT DO NOTHING");
   }
 }
 
-async function saveHistory({ url, method, status, time }) {
-  if (!pool) return;
-  await pool.query('INSERT INTO history (id, url, method, status, time) VALUES ($1, $2, $3, $4, $5)', [uuidv4(), url, method, status, time]);
+async function saveHistory({ url, method, status, time, userId }) {
+  if (!pool || !userId) return;
+  await pool.query('INSERT INTO history (id, url, method, status, time, user_id) VALUES ($1, $2, $3, $4, $5, $6)', [uuidv4(), url, method, status, time, userId]);
 }
 
-async function getHistory() {
-  if (!pool) return [];
-  const res = await pool.query('SELECT * FROM history ORDER BY created_at DESC LIMIT 100');
+async function getHistory(userId) {
+  if (!pool || !userId) return [];
+  const res = await pool.query('SELECT * FROM history WHERE user_id = $1 ORDER BY created_at DESC LIMIT 100', [userId]);
   return res.rows;
 }
 
-async function getCollections() {
-  if (!pool) return [];
-  const res = await pool.query('SELECT * FROM collections ORDER BY created_at DESC');
+async function getCollections(userId) {
+  if (!pool || !userId) return [];
+  const res = await pool.query('SELECT * FROM collections WHERE user_id = $1 ORDER BY created_at DESC', [userId]);
   return res.rows;
 }
 
-async function createCollection(name, data) {
+async function createCollection(name, data, userId) {
   const id = uuidv4();
-  await pool.query('INSERT INTO collections (id, name, data) VALUES ($1, $2, $3)', [id, name, JSON.stringify(data)]);
+  await pool.query('INSERT INTO collections (id, name, data, user_id) VALUES ($1, $2, $3, $4)', [id, name, JSON.stringify(data), userId]);
   return { id, name, data };
 }
 
-async function updateCollection(id, data) {
-  await pool.query('UPDATE collections SET data = $1 WHERE id = $2', [JSON.stringify(data), id]);
+async function updateCollection(id, data, userId) {
+  await pool.query('UPDATE collections SET data = $1 WHERE id = $2 AND user_id = $3', [JSON.stringify(data), id, userId]);
   return { id, data };
 }
 
@@ -126,26 +132,26 @@ async function removeMember(id) {
   return { id };
 }
 
-async function getWorkspaces() {
-  if (!pool) return [];
-  const res = await pool.query('SELECT * FROM workspaces ORDER BY created_at ASC');
+async function getWorkspaces(userId) {
+  if (!pool || !userId) return [];
+  const res = await pool.query('SELECT * FROM workspaces WHERE user_id = $1 OR id = $2 ORDER BY created_at ASC', [userId, 'default']);
   return res.rows;
 }
 
-async function addWorkspace(name) {
+async function addWorkspace(name, userId) {
   const id = uuidv4();
-  await pool.query('INSERT INTO workspaces (id, name) VALUES ($1, $2)', [id, name]);
+  await pool.query('INSERT INTO workspaces (id, name, user_id) VALUES ($1, $2, $3)', [id, name, userId]);
   return { id, name };
 }
 
-async function updateWorkspace(id, name) {
-  await pool.query('UPDATE workspaces SET name = $1 WHERE id = $2', [name, id]);
+async function updateWorkspace(id, name, userId) {
+  await pool.query('UPDATE workspaces SET name = $1 WHERE id = $2 AND user_id = $3', [name, id, userId]);
   return { id, name };
 }
 
-async function deleteWorkspace(id) {
+async function deleteWorkspace(id, userId) {
   if (id === 'default') return false;
-  await pool.query('DELETE FROM workspaces WHERE id = $1', [id]);
+  await pool.query('DELETE FROM workspaces WHERE id = $1 AND user_id = $2', [id, userId]);
   return true;
 }
 

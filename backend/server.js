@@ -48,6 +48,18 @@ app.post('/api/proxy', async (req, res) => {
     }
   }
 
+  const authHeader = req.headers.authorization;
+  let userId = null;
+  if (authHeader) {
+     const token = authHeader.split(' ')[1];
+     if (token) {
+        try {
+           const user = await db.getUserBySession(token);
+           if (user) userId = user.id;
+        } catch(e) {}
+     }
+  }
+
   const startTime = Date.now();
 
   try {
@@ -55,9 +67,11 @@ app.post('/api/proxy', async (req, res) => {
     const endTime = Date.now();
     
     // Save to History (Fire and forget, but handle exception)
-    db.saveHistory({
-      url, method, status: response.status, time: endTime - startTime
-    }).catch(console.error);
+    if (userId) {
+       db.saveHistory({
+         url, method, status: response.status, time: endTime - startTime, userId
+       }).catch(console.error);
+    }
 
     res.status(response.status).json({
       status: response.status,
@@ -186,24 +200,24 @@ app.use('/api/members', requireAuth);
 app.use('/api/workspaces', requireAuth);
 
 app.get('/api/history', async (req, res) => {
-  try { res.json(await db.getHistory()); } catch(e) { res.status(500).json({error:e.message}); }
+  try { res.json(await db.getHistory(req.user.id)); } catch(e) { res.status(500).json({error:e.message}); }
 });
 
 app.get('/api/collections', async (req, res) => {
-  try { res.json(await db.getCollections()); } catch(e) { res.status(500).json({error:e.message}); }
+  try { res.json(await db.getCollections(req.user.id)); } catch(e) { res.status(500).json({error:e.message}); }
 });
 
 app.post('/api/collections', async (req, res) => {
   const { name, data } = req.body;
   if (!name || !data) return res.status(400).json({ error: 'Name and Data are required.' });
-  try { res.status(201).json(await db.createCollection(name, data)); } catch(e){ res.status(500).json({error:e.message}); }
+  try { res.status(201).json(await db.createCollection(name, data, req.user.id)); } catch(e){ res.status(500).json({error:e.message}); }
 });
 
 app.put('/api/collections/:id', async (req, res) => {
   const { id } = req.params;
   const { data } = req.body;
   if (!data) return res.status(400).json({ error: 'Data is required.' });
-  try { res.json(await db.updateCollection(id, data)); } catch(e){ res.status(500).json({error:e.message}); }
+  try { res.json(await db.updateCollection(id, data, req.user.id)); } catch(e){ res.status(500).json({error:e.message}); }
 });
 
 app.get('/api/members', async (req, res) => {
@@ -229,24 +243,24 @@ app.delete('/api/members/:id', async (req, res) => {
 });
 
 app.get('/api/workspaces', async (req, res) => {
-  try { res.json(await db.getWorkspaces()); } catch(e){ res.status(500).json({error:e.message}); }
+  try { res.json(await db.getWorkspaces(req.user.id)); } catch(e){ res.status(500).json({error:e.message}); }
 });
 
 app.post('/api/workspaces', async (req, res) => {
   const { name } = req.body;
   if (!name) return res.status(400).json({ error: 'Name is required' });
-  try { res.status(201).json(await db.addWorkspace(name)); } catch(e){ res.status(500).json({error:e.message}); }
+  try { res.status(201).json(await db.addWorkspace(name, req.user.id)); } catch(e){ res.status(500).json({error:e.message}); }
 });
 
 app.put('/api/workspaces/:id', async (req, res) => {
   const { name } = req.body;
   if (!name) return res.status(400).json({ error: 'Name is required' });
-  try { res.json(await db.updateWorkspace(req.params.id, name)); } catch(e){ res.status(500).json({error:e.message}); }
+  try { res.json(await db.updateWorkspace(req.params.id, name, req.user.id)); } catch(e){ res.status(500).json({error:e.message}); }
 });
 
 app.delete('/api/workspaces/:id', async (req, res) => {
   try {
-    const success = await db.deleteWorkspace(req.params.id);
+    const success = await db.deleteWorkspace(req.params.id, req.user.id);
     if (!success) return res.status(400).json({ error: 'Cannot delete default workspace' });
     res.status(204).send();
   } catch(e){ res.status(500).json({error:e.message}); }
