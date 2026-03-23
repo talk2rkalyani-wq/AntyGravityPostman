@@ -282,6 +282,12 @@ function updatePasswordByEmail(email, passwordHash) {
   }
 }
 
+function deleteCollection(id, userId) {
+  const stmt = db.prepare('DELETE FROM collections WHERE id = ? AND user_id = ?');
+  stmt.run(id, userId);
+  return true;
+}
+
 module.exports = {
   initDb,
   saveHistory,
@@ -289,6 +295,7 @@ module.exports = {
   getCollections,
   createCollection,
   updateCollection,
+  deleteCollection,
   getEnvironments,
   createEnvironment,
   updateEnvironment,

@@ -266,8 +266,15 @@ async function updatePasswordByEmail(email, passwordHash) {
   }
 }
 
+async function deleteCollection(id, userId) {
+  await pool.query(`
+    DELETE FROM collections
+    WHERE id = $1 AND user_id = $2
+  `, [id, userId]);
+}
+
 module.exports = {
-  initDb, saveHistory, getHistory, getCollections, createCollection, updateCollection,
+  initDb, saveHistory, getHistory, getCollections, createCollection, updateCollection, deleteCollection,
   getEnvironments, createEnvironment, updateEnvironment, deleteEnvironment,
   getMembers, addMember, updateMemberRole, removeMember, getWorkspaces, addWorkspace,
   updateWorkspace, deleteWorkspace, createUser, getUserByEmailOrUsername, getUserById,

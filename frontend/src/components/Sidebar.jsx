@@ -8,6 +8,7 @@ function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAcc
   const [loading, setLoading] = useState(false);
   const [expandedCollections, setExpandedCollections] = useState({});
   const [menuParams, setMenuParams] = useState(null);
+  const [deleteConfirmParams, setDeleteConfirmParams] = useState(null);
 
   useEffect(() => {
     const handleClickOutside = () => setMenuParams(null);
@@ -273,18 +274,65 @@ function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAcc
 
       {menuParams && (
          <div 
-            className="fixed bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-md shadow-2xl z-[9999] flex flex-col min-w-[180px] py-1 text-sm font-medium"
+            className="fixed bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded shadow-2xl z-[9999] flex flex-col min-w-[220px] py-1 text-[13px] font-medium text-[var(--text-primary)]"
             style={{ top: menuParams.y, left: menuParams.x }}
             onClick={(e) => e.stopPropagation()}
          >
             {menuParams.isCollectionMenu ? (
                <>
-                 <button className="flex items-center justify-between w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] text-[var(--text-primary)] transition-colors text-left" onClick={() => handleExportCollection(menuParams.collection)}>
-                    Export (Postman JSON)
+                 <button className="flex items-center justify-start w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] transition-colors text-left" onClick={() => setMenuParams(null)}>
+                    Add request
+                 </button>
+                 <button className="flex items-center justify-start w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] transition-colors text-left" onClick={() => setMenuParams(null)}>
+                    Add folder
                  </button>
                  <div className="h-[1px] bg-[var(--border-color)] my-1"></div>
-                 <button className="flex items-center justify-between w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] text-red-500 hover:text-red-400 transition-colors text-left" onClick={() => { setMenuParams(null); }}>
+                 <button className="flex items-center justify-start w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] transition-colors text-left" onClick={() => setMenuParams(null)}>
+                    Run
+                 </button>
+                 <div className="h-[1px] bg-[var(--border-color)] my-1"></div>
+                 <button className="flex items-center justify-start w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] transition-colors text-left" onClick={() => setMenuParams(null)}>
+                    Share
+                 </button>
+                 <button className="flex items-center justify-start w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] transition-colors text-left" onClick={() => setMenuParams(null)}>
+                    Copy link
+                 </button>
+                 <div className="h-[1px] bg-[var(--border-color)] my-1"></div>
+                 <button className="flex items-center justify-start w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] transition-colors text-left" onClick={() => setMenuParams(null)}>
+                    Ask AI
+                 </button>
+                 <button className="flex items-center justify-start w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] transition-colors text-left" onClick={() => setMenuParams(null)}>
+                    Move
+                 </button>
+                 <div className="h-[1px] bg-[var(--border-color)] my-1"></div>
+                 <button className="flex items-center justify-between w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] transition-colors text-left" onClick={() => setMenuParams(null)}>
+                    Fork
+                    <span className="text-[10px] text-[var(--text-muted)] opacity-60 font-mono tracking-widest leading-none">⌥⌘F</span>
+                 </button>
+                 <div className="h-[1px] bg-[var(--border-color)] my-1"></div>
+                 <button className="flex items-center justify-between w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] transition-colors text-left" onClick={() => setMenuParams(null)}>
+                    Rename
+                    <span className="text-[10px] text-[var(--text-muted)] opacity-60 font-mono tracking-widest leading-none">⌘E</span>
+                 </button>
+                 <button className="flex items-center justify-between w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] transition-colors text-left" onClick={() => setMenuParams(null)}>
+                    Duplicate
+                    <span className="text-[10px] text-[var(--text-muted)] opacity-60 font-mono tracking-widest leading-none">⌘D</span>
+                 </button>
+                 <button className="flex items-center justify-between w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] transition-colors text-left" onClick={() => handleExportCollection(menuParams.collection)}>
+                    Export
+                 </button>
+                 <button className="flex items-center justify-between w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] transition-colors text-left group" onClick={() => setMenuParams(null)}>
+                    Sort
+                    <ChevronRight size={14} className="text-[var(--text-muted)] group-hover:text-[var(--text-primary)]" />
+                 </button>
+                 <button className="flex items-center justify-between w-full px-4 py-1.5 hover:bg-red-50 text-red-600 transition-colors text-left group" onClick={() => { setDeleteConfirmParams({ id: menuParams.collection.id }); setMenuParams(null); }}>
                     Delete
+                    <span className="text-[10px] opacity-60 font-mono tracking-widest leading-none border border-red-200 bg-red-100 px-1 rounded flex items-center justify-center">⌫</span>
+                 </button>
+                 <div className="h-[1px] bg-[var(--border-color)] my-1"></div>
+                 <button className="flex items-center justify-between w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] transition-colors text-left group" onClick={() => setMenuParams(null)}>
+                    More
+                    <ChevronRight size={14} className="text-[var(--text-muted)] group-hover:text-[var(--text-primary)]" />
                  </button>
                </>
             ) : (
@@ -322,6 +370,42 @@ function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAcc
             </button>
                </>
             )}
+         </div>
+      )}
+
+      {deleteConfirmParams && (
+         <div className="fixed inset-0 bg-black/50 z-[10000] flex items-center justify-center p-4">
+            <div className="bg-[var(--bg-primary)] rounded-lg shadow-2xl w-full max-w-sm flex flex-col overflow-hidden relative border border-[var(--border-color)] fade-in">
+               <div className="p-6">
+                  <h3 className="text-[15px] font-semibold text-[var(--text-primary)] mb-2 mt-2 leading-relaxed">
+                     Are you sure want to delete this collection
+                  </h3>
+               </div>
+               <div className="flex items-center justify-end px-6 py-4 bg-[var(--bg-secondary)] border-t border-[var(--border-color)] gap-3 mt-4">
+                  <button 
+                     className="px-4 py-2 rounded text-sm font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors border border-[var(--border-color)] bg-[var(--bg-primary)] hover:bg-[var(--bg-tertiary)]"
+                     onClick={() => setDeleteConfirmParams(null)}
+                  >
+                     Cancel
+                  </button>
+                  <button 
+                     className="px-6 py-2 rounded text-sm font-semibold bg-red-600 hover:bg-red-700 text-white transition-colors border border-red-700"
+                     onClick={async () => {
+                        try {
+                           await fetch(`/api/collections/${deleteConfirmParams.id}`, {
+                              method: 'DELETE',
+                              headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                           });
+                           setActiveNavTab('History'); 
+                           setTimeout(() => setActiveNavTab('Collections'), 10);
+                        } catch(e) {}
+                        setDeleteConfirmParams(null);
+                     }}
+                  >
+                     Delete
+                  </button>
+               </div>
+            </div>
          </div>
       )}
     </aside>
