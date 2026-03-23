@@ -227,15 +227,15 @@ function ImportModal({ onClose, onImportRequest, onImportAndSave, onImportComple
 
   return (
     <div className="absolute inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-2xl w-full max-w-3xl flex flex-col pt-4 overflow-hidden" 
+      <div className="bg-[var(--bg-secondary)] rounded-lg shadow-2xl w-full max-w-3xl flex flex-col pt-4 overflow-hidden border border-[var(--border-color)]" 
            style={{ minHeight: '500px' }}>
         
         {step === 1 ? (
           <>
             {/* Header */}
-            <div className="flex justify-between items-center px-6 pb-4 border-b border-gray-200">
-               <h2 className="text-xl font-bold text-gray-800 tracking-tight">Import your API or Connect Your Local Repo</h2>
-               <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
+            <div className="flex justify-between items-center px-6 pb-4 border-b border-[var(--border-color)]">
+               <h2 className="text-xl font-bold text-[var(--text-primary)] tracking-tight">Import your API or Connect Your Local Repo</h2>
+               <button onClick={onClose} className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors">
                  <X size={20} />
                </button>
             </div>
@@ -246,7 +246,7 @@ function ImportModal({ onClose, onImportRequest, onImportAndSave, onImportComple
                  type="text"
                  autoFocus
                  placeholder="Paste cURL, gRPCurl, Raw text or URL..."
-                 className="w-full border-2 border-orange-500 rounded px-4 py-3 text-sm outline-none text-gray-700 shadow-[0_0_0_4px_rgba(249,115,22,0.1)] focus:shadow-[0_0_0_4px_rgba(249,115,22,0.2)] transition-shadow placeholder-gray-400"
+                 className="w-full bg-[var(--bg-primary)] border border-[var(--border-color)] rounded px-4 py-3 text-sm outline-none text-[var(--text-primary)] focus:border-[var(--accent-cyan)] transition-colors placeholder-[var(--text-muted)]"
                  value={inputText}
                  onChange={handleTextPaste}
                />
@@ -261,32 +261,32 @@ function ImportModal({ onClose, onImportRequest, onImportAndSave, onImportComple
                <input type="file" ref={fileInputRef} className="hidden" multiple accept=".json" onChange={(e) => processFiles(e.target.files)} />
                <input type="file" ref={folderInputRef} className="hidden" webkitdirectory="true" directory="true" onChange={(e) => processFiles(e.target.files)} />
                
-               <div className={`h-full border-2 border-dashed ${isDragging ? 'border-orange-500 bg-orange-50' : 'border-gray-300 bg-gray-50/50 hover:bg-gray-50'} rounded-lg flex flex-col items-center justify-center transition-colors cursor-pointer`}
+               <div className={`h-full border border-dashed ${isDragging ? 'border-[var(--accent-cyan)] bg-[var(--bg-tertiary)]' : 'border-[var(--border-color)] bg-[var(--bg-primary)] hover:bg-[var(--bg-tertiary)]'} rounded-lg flex flex-col items-center justify-center transition-colors cursor-pointer`}
                     onClick={() => fileInputRef.current?.click()}
                >
-                  <UploadCloud size={48} className={`${isDragging ? 'text-orange-500' : 'text-gray-400'} mb-4 stroke-1`} />
-                  <div className="text-lg font-semibold text-gray-700">{isDragging ? 'Drop folders or files here...' : 'Drop anywhere to import'}</div>
-                  <div className="text-sm text-gray-500 mt-1" onClick={(e) => e.stopPropagation()}>
-                     Or select <span className="text-orange-500 font-medium hover:underline cursor-pointer" onClick={() => fileInputRef.current?.click()}>files</span> or <span className="text-orange-500 font-medium hover:underline cursor-pointer" onClick={() => folderInputRef.current?.click()}>folders</span>
+                  <UploadCloud size={48} className={`${isDragging ? 'text-[var(--accent-cyan)]' : 'text-[var(--text-muted)]'} mb-4 stroke-1`} />
+                  <div className="text-lg font-semibold text-[var(--text-primary)]">{isDragging ? 'Drop folders or files here...' : 'Drop anywhere to import'}</div>
+                  <div className="text-sm text-[var(--text-secondary)] mt-1" onClick={(e) => e.stopPropagation()}>
+                     Or select <span className="text-[var(--accent-cyan)] font-medium hover:underline cursor-pointer" onClick={() => fileInputRef.current?.click()}>files</span> or <span className="text-[var(--accent-cyan)] font-medium hover:underline cursor-pointer" onClick={() => folderInputRef.current?.click()}>folders</span>
                   </div>
                </div>
             </div>
 
             {/* Footer */}
-            <div className="bg-gray-50 border-t border-gray-200 px-6 py-3 flex items-center justify-between text-xs font-semibold text-gray-600">
+            <div className="bg-[var(--bg-primary)] border-t border-[var(--border-color)] px-6 py-3 flex items-center justify-between text-xs font-semibold text-[var(--text-muted)]">
                <div className="flex items-center gap-6">
-                  <button className="flex items-center gap-1 hover:text-gray-900 transition-colors">
-                     <div className="w-4 h-4 rounded-full border border-gray-400 flex items-center justify-center text-[10px]">P</div>
-                     Migrate to Postman <ChevronDown size={14} className="text-gray-400 ml-1" />
+                  <button className="flex items-center gap-1 hover:text-[var(--text-primary)] transition-colors">
+                     <div className="w-4 h-4 rounded-full border border-[var(--text-muted)] flex items-center justify-center text-[10px]">P</div>
+                     Migrate to Postman <ChevronDown size={14} className="text-[var(--text-muted)] ml-1" />
                   </button>
-                  <div className="text-gray-300">|</div>
-                  <button className="flex items-center gap-1 hover:text-gray-900 transition-colors">
-                     <Github size={14} /> Other Sources <ChevronDown size={14} className="text-gray-400 ml-1" />
+                  <div className="text-[var(--text-muted)] opacity-50">|</div>
+                  <button className="flex items-center gap-1 hover:text-[var(--text-primary)] transition-colors">
+                     <Github size={14} /> Other Sources <ChevronDown size={14} className="text-[var(--text-muted)] ml-1" />
                   </button>
                </div>
                
                <div className="flex items-center gap-4">
-                 <a href="#" className="flex items-center gap-1 text-gray-500 hover:text-gray-800 transition-colors bg-white px-2 py-1 rounded border border-gray-200 shadow-sm">
+                 <a href="#" className="flex items-center gap-1 text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors bg-[var(--bg-tertiary)] px-2 py-1 rounded border border-transparent hover:border-[var(--border-color)]">
                     Learn more about importing data <ExternalLink size={12} />
                  </a>
                  <button 
@@ -321,7 +321,7 @@ function ImportModal({ onClose, onImportRequest, onImportAndSave, onImportComple
                        }
                     }}
                     disabled={!inputText.trim()}
-                    className="bg-orange-500 hover:bg-orange-600 disabled:bg-orange-300 text-white px-4 py-1.5 rounded transition-colors text-sm font-medium shadow-sm"
+                    className="bg-[var(--accent-cyan)] hover:bg-[#0891B2] disabled:opacity-50 text-white px-4 py-1.5 rounded transition-colors text-sm font-medium shadow-sm transition-opacity"
                  >
                     Continue
                  </button>
@@ -329,27 +329,27 @@ function ImportModal({ onClose, onImportRequest, onImportAndSave, onImportComple
             </div>
           </>
         ) : (
-          <div className="flex flex-col h-full bg-white flex-1">
+          <div className="flex flex-col h-full bg-[var(--bg-secondary)] flex-1">
              {/* Step 2 Header */}
-            <div className="flex justify-between items-center px-6 py-4 border-b border-gray-200 shrink-0">
-               <h2 className="text-xl font-bold text-gray-800 tracking-tight">Import cURL into a collection</h2>
-               <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
+            <div className="flex justify-between items-center px-6 py-4 border-b border-[var(--border-color)] shrink-0">
+               <h2 className="text-xl font-bold text-[var(--text-primary)] tracking-tight">Import cURL into a collection</h2>
+               <button onClick={onClose} className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors">
                  <X size={20} />
                </button>
             </div>
             
             <div className="px-6 py-4 flex flex-col gap-5 flex-1 overflow-y-auto">
               {/* Highlighted text area */}
-              <div className="bg-gray-50 border border-gray-200 rounded p-4 text-sm font-mono text-blue-600 overflow-x-auto whitespace-pre-wrap break-all" style={{ maxHeight: '150px' }}>
+              <div className="bg-[var(--bg-primary)] border border-transparent rounded p-4 text-sm font-mono text-[var(--accent-cyan)] overflow-x-auto whitespace-pre-wrap break-all" style={{ maxHeight: '150px' }}>
                 {inputText}
               </div>
 
               {/* Request name */}
               <div>
-                <label className="block text-sm font-semibold text-gray-600 mb-1">Request name</label>
+                <label className="block text-sm font-semibold text-[var(--text-secondary)] mb-1">Request name</label>
                 <input 
                   type="text"
-                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 text-gray-800"
+                  className="w-full bg-[var(--bg-primary)] border border-transparent rounded px-3 py-2 text-sm outline-none focus:border-[var(--accent-cyan)] focus:ring-1 focus:ring-[var(--accent-cyan)] text-[var(--text-primary)]"
                   value={requestName}
                   onChange={(e) => setRequestName(e.target.value)}
                   placeholder="Enter request name"
@@ -358,12 +358,12 @@ function ImportModal({ onClose, onImportRequest, onImportAndSave, onImportComple
 
               {/* Collection name */}
               <div>
-                <label className="block text-sm font-semibold text-gray-600 mb-1 flex items-center gap-1">
-                  Collection name <span className="text-gray-400 border border-gray-400 rounded-full w-4 h-4 flex items-center justify-center text-[10px] cursor-help" title="Select a collection to import into">i</span>
+                <label className="block text-sm font-semibold text-[var(--text-secondary)] mb-1 flex items-center gap-1">
+                  Collection name <span className="text-[var(--text-muted)] border border-[var(--text-muted)] rounded-full w-4 h-4 flex items-center justify-center text-[10px] cursor-help" title="Select a collection to import into">i</span>
                 </label>
                 <div className="relative">
                   <select 
-                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 appearance-none bg-white text-gray-800"
+                    className="w-full bg-[var(--bg-primary)] border border-transparent rounded px-3 py-2 text-sm outline-none focus:border-[var(--accent-cyan)] focus:ring-1 focus:ring-[var(--accent-cyan)] appearance-none text-[var(--text-primary)] cursor-pointer"
                     value={selectedCollection}
                     onChange={(e) => setSelectedCollection(e.target.value)}
                   >
@@ -372,22 +372,22 @@ function ImportModal({ onClose, onImportRequest, onImportAndSave, onImportComple
                       <option key={c.id} value={c.name}>{c.name}</option>
                     ))}
                   </select>
-                  <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
+                  <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-[var(--text-muted)] pointer-events-none" size={16} />
                 </div>
               </div>
             </div>
 
             {/* Step 2 Footer */}
-            <div className="border-t border-gray-200 px-6 py-4 flex items-center justify-end gap-3 bg-white shrink-0">
+            <div className="border-t border-[var(--border-color)] px-6 py-4 flex items-center justify-end gap-3 bg-[var(--bg-primary)] shrink-0">
               <button 
                 onClick={handleImportWithoutSaving}
-                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded transition-colors"
+                className="px-4 py-2 bg-[var(--bg-tertiary)] hover:border-[var(--border-color)] text-[var(--text-primary)] border border-transparent text-sm font-medium rounded transition-colors"
               >
                 Import Without Saving
               </button>
               <button 
                 onClick={handleImportIntoCollection}
-                className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded shadow-sm transition-colors"
+                className="px-4 py-2 bg-[var(--accent-cyan)] hover:bg-[#0891B2] disabled:opacity-50 text-white text-sm font-medium rounded shadow-sm transition-all"
                 disabled={!requestName}
               >
                 Import Into Collection
