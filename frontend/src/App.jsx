@@ -491,25 +491,7 @@ function App() {
             </div>
 
             {tabs.length === 0 ? (
-               <div className="flex-1 flex flex-col items-center justify-center bg-[var(--bg-primary)] text-[var(--text-primary)] relative border-t border-[var(--border-color)]">
-                   <div className="relative w-48 h-48 mb-8 flex items-center justify-center bg-[var(--bg-secondary)] rounded-full shadow-[inset_0_0_50px_rgba(0,0,0,0.5)]">
-                      <Logo className="w-24 h-24 opacity-10 text-[var(--text-muted)]" />
-                   </div>
-                   <button 
-                      onClick={() => handleNewRequest('modal')}
-                      className="flex items-center gap-2 bg-[var(--bg-secondary)] border border-[var(--border-color)] hover:border-[var(--text-muted)] px-5 py-2.5 rounded font-medium text-sm transition-colors mb-10 shadow-sm"
-                   >
-                     🚀 Open Workspace Overview
-                   </button>
-                   <div className="text-[var(--text-secondary)] text-sm mb-4">Create a new request:</div>
-                   <div className="flex items-center gap-6 text-[var(--text-muted)]">
-                      <button onClick={() => handleNewRequest('http')} className="hover:text-[var(--text-primary)] transition-colors p-2" title="HTTP Request"><Globe strokeWidth={1.5} size={22} /></button>
-                      <button onClick={() => handleNewRequest('modal')} className="hover:text-[var(--text-primary)] transition-colors p-2" title="GraphQL Request"><Hexagon strokeWidth={1.5} size={22} /></button>
-                      <button onClick={() => handleNewRequest('modal')} className="hover:text-[var(--text-primary)] transition-colors p-2" title="WebSocket Request"><Zap strokeWidth={1.5} size={22} /></button>
-                      <button onClick={() => handleNewRequest('modal')} className="hover:text-[var(--text-primary)] transition-colors p-2" title="gRPC Request"><Database strokeWidth={1.5} size={22} /></button>
-                      <button onClick={() => handleNewRequest('modal')} className="hover:text-[var(--text-primary)] transition-colors p-2" title="More options"><MoreHorizontal strokeWidth={1.5} size={22} /></button>
-                   </div>
-               </div>
+               <div className="flex-1 bg-[var(--bg-primary)] border-t border-[var(--border-color)]"></div>
             ) : (
                <>
                  <div style={{ flex: `0 0 ${topPaneHeight}` }} className="flex flex-col shrink-0 relative overflow-hidden transition-none">
