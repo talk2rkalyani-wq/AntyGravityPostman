@@ -70,9 +70,7 @@ function App() {
   const [isDraggingDivider, setIsDraggingDivider] = useState(false);
 
   const handleGoHome = () => {
-    setActiveNavTab('Collections');
-    setResponseState(null);
-    setShowNewFeatureModal(false);
+    window.location.reload();
   };
 
   const startDividerDrag = (e) => {

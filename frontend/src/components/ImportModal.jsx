@@ -170,10 +170,22 @@ function ImportModal({ onClose, onImportRequest, onImportAndSave, onImportComple
             }
             if (params.length === 0) params.push({ key: '', value: '', description: '', active: true });
 
+            let preRequestScript = '';
+            let postResponseScript = '';
+            if (item.event && Array.isArray(item.event)) {
+               item.event.forEach(ev => {
+                  if (ev.listen === 'prerequest' && ev.script && Array.isArray(ev.script.exec)) {
+                     preRequestScript = ev.script.exec.join('\n');
+                  } else if (ev.listen === 'test' && ev.script && Array.isArray(ev.script.exec)) {
+                     postResponseScript = ev.script.exec.join('\n');
+                  }
+               });
+            }
+
             requests.push({
                name: parsedName,
                method, url, headers, bodyType, bodyRaw, bodyFormData, bodyUrlEncoded, params,
-               bodyGraphQLQuery: '', bodyGraphQLVariables: '', authType: 'No Auth', authData: {}, activeTab: 'Params'
+               bodyGraphQLQuery: '', bodyGraphQLVariables: '', preRequestScript, postResponseScript, authType: 'No Auth', authData: {}, activeTab: 'Params'
             });
          } else if (item.item) {
             const newPath = parentPath ? `${parentPath} / ${item.name}` : item.name;
