@@ -430,6 +430,8 @@ function App() {
                    bodyUrlEncoded: (req.bodyUrlEncoded && req.bodyUrlEncoded.length > 0) ? req.bodyUrlEncoded : [{ key: '', value: '', description: '', active: true }],
                    bodyGraphQLQuery: req.bodyGraphQLQuery || '',
                    bodyGraphQLVariables: req.bodyGraphQLVariables || '',
+                   preRequestScript: req.preRequestScript || '',
+                   postResponseScript: req.postResponseScript || '',
                    authType: req.authType || 'No Auth',
                    authData: req.authData || {},
                 };
