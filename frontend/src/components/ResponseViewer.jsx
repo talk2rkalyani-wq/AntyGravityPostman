@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import Logo from './Logo';
 
 function ResponseViewer({ response, loading }) {
   const [activeTab, setActiveTab] = useState('Body');
@@ -18,11 +17,11 @@ function ResponseViewer({ response, loading }) {
   if (!response) {
     return (
       <div className="flex-1 flex flex-col p-4 bg-[var(--bg-primary)] border-t border-[var(--border-color)] justify-center items-center h-full">
-         <div className="text-center text-[var(--text-muted)] flex flex-col items-center">
-            <div className="relative w-40 h-40 mb-6 flex items-center justify-center bg-[var(--bg-secondary)] rounded-full shadow-[inset_0_0_50px_rgba(0,0,0,0.5)]">
-               <Logo className="w-20 h-20 opacity-10 text-[var(--text-muted)]" />
-            </div>
-            <p className="text-sm">Enter a URL and click Send to get a response</p>
+         <div className="text-center text-[var(--text-muted)]">
+            <svg className="w-16 h-16 mx-auto mb-4 opacity-20" fill="currentColor" viewBox="0 0 20 20">
+               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM5.5 10a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0z" clipRule="evenodd" />
+            </svg>
+            <p>Enter a URL and click Send to get a response</p>
          </div>
       </div>
     );
