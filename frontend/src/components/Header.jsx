@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ChevronDown, Plus, Trash, Edit2, Check, X } from 'lucide-react';
 import Logo from './Logo';
 
-function Header({ onLogout }) {
+function Header({ onLogout, onGoHome }) {
   const [workspaces, setWorkspaces] = useState([]);
   const [activeWorkspace, setActiveWorkspace] = useState(null);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -102,9 +102,9 @@ function Header({ onLogout }) {
   return (
     <header className="h-12 border-b border-[var(--border-color)] bg-[var(--bg-primary)] flex items-center px-4 shrink-0 transition-colors">
       <div className="flex gap-6 items-center flex-1">
-        <div className="flex items-center gap-2">
-          <Logo className="w-6 h-6" />
-          <div className="font-bold text-xl tracking-wide bg-clip-text text-transparent bg-gradient-to-r from-[#06B6D4] to-[#8B5CF6]">
+        <div className="flex items-center gap-2 cursor-pointer select-none group" onClick={onGoHome}>
+          <Logo className="w-6 h-6 group-hover:scale-110 transition-transform" />
+          <div className="font-bold text-xl tracking-wide bg-clip-text text-transparent bg-gradient-to-r from-[#06B6D4] to-[#8B5CF6] group-hover:opacity-80 transition-opacity">
              NeonAPI
           </div>
         </div>

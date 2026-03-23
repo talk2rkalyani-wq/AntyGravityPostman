@@ -56,6 +56,8 @@ function App() {
     bodyUrlEncoded: [{ key: '', value: '', description: '', active: true }],
     bodyGraphQLQuery: '',
     bodyGraphQLVariables: '',
+    preRequestScript: '',
+    postResponseScript: '',
     authType: 'No Auth',
     authData: {}
   });
@@ -63,6 +65,41 @@ function App() {
   const [tabs, setTabs] = useState([createNewTab()]);
   const [activeTabId, setActiveTabId] = useState(tabs[0].id);
   const [showNewFeatureModal, setShowNewFeatureModal] = useState(false);
+  
+  const [topPaneHeight, setTopPaneHeight] = useState('50%');
+  const [isDraggingDivider, setIsDraggingDivider] = useState(false);
+
+  const handleGoHome = () => {
+    setActiveNavTab('Collections');
+    setResponseState(null);
+    setShowNewFeatureModal(false);
+  };
+
+  const startDividerDrag = (e) => {
+    e.preventDefault();
+    setIsDraggingDivider(true);
+    
+    document.body.style.cursor = 'row-resize';
+    document.body.style.userSelect = 'none';
+
+    const handleMouseMove = (moveEvent) => {
+       const newPercentage = (moveEvent.clientY / window.innerHeight) * 100;
+       if (newPercentage > 20 && newPercentage < 80) {
+          setTopPaneHeight(`${newPercentage}%`);
+       }
+    };
+
+    const handleMouseUp = () => {
+       setIsDraggingDivider(false);
+       document.body.style.cursor = '';
+       document.body.style.userSelect = '';
+       document.removeEventListener('mousemove', handleMouseMove);
+       document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
 
   const activeRequest = tabs.find(t => t.id === activeTabId) || tabs[0];
 
@@ -366,7 +403,7 @@ function App() {
 
   return (
     <div className="flex flex-col h-screen w-screen bg-[var(--bg-primary)] overflow-hidden">
-      <Header onLogout={handleLogout} />
+      <Header onLogout={handleLogout} onGoHome={handleGoHome} />
       <div className="flex flex-1 overflow-hidden relative">
         <Sidebar 
           activeNavTab={activeNavTab} 
@@ -453,17 +490,30 @@ function App() {
                   <Plus size={16} />
                </button>
             </div>
+            <div style={{ flex: `0 0 ${topPaneHeight}` }} className="flex flex-col shrink-0 relative overflow-hidden transition-none">
+              <RequestEditor 
+                requestState={activeRequest} 
+                setRequestState={updateActiveRequest} 
+                onSend={executeRequest} 
+                onSave={handleSaveToCollection}
+              />
+            </div>
+            
+            {/* Drag Divider */}
+            <div 
+               className={`h-2 !min-h-[8px] bg-[var(--bg-primary)] border-y border-[var(--border-color)] cursor-row-resize flex justify-center items-center z-[100] shrink-0 ${isDraggingDivider ? 'bg-[var(--accent-cyan)] opacity-80 shadow-[0_0_10px_rgba(6,182,212,0.5)]' : 'hover:bg-[var(--bg-tertiary)]'} transition-colors`}
+               onMouseDown={startDividerDrag}
+            >
+               <div className={`w-8 h-1 rounded-full ${isDraggingDivider ? 'bg-white' : 'bg-[var(--border-color)]'} transition-colors`}></div>
+            </div>
 
-            <RequestEditor 
-              requestState={activeRequest} 
-              setRequestState={updateActiveRequest} 
-              onSend={executeRequest} 
-              onSave={handleSaveToCollection}
-            />
-            <ResponseViewer 
-              response={responseState} 
-              loading={loading} 
-            />
+            {/* Bottom Response Viewer */}
+            <div className="flex-1 flex flex-col relative overflow-hidden">
+              <ResponseViewer 
+                response={responseState} 
+                loading={loading} 
+              />
+            </div>
           </main>
         )}
       </div>

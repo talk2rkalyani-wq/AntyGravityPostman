@@ -3,6 +3,7 @@ import { Play } from 'lucide-react';
 import KeyValueEditor from './KeyValueEditor';
 import BodyEditor from './BodyEditor';
 import AuthEditor from './AuthEditor';
+import ScriptEditor from './ScriptEditor';
 
 function RequestEditor({ requestState, setRequestState, onSend, onSave }) {
   const { method, url, activeTab, params, headers } = requestState;
@@ -44,7 +45,7 @@ function RequestEditor({ requestState, setRequestState, onSend, onSave }) {
       </div>
 
       <div className="tab-nav mb-4">
-        {['Params', 'Headers', 'Body', 'Auth'].map(tab => (
+        {['Params', 'Headers', 'Body', 'Scripts', 'Auth'].map(tab => (
           <div 
             key={tab}
             className={`tab-item ${activeTab === tab ? 'active' : ''}`}
@@ -54,6 +55,7 @@ function RequestEditor({ requestState, setRequestState, onSend, onSave }) {
             {tab === 'Params' && params.length > 1 && <span className="text-xs ml-1 text-[#06B6D4]">({params.filter(p=>p.active && p.key).length})</span>}
             {tab === 'Headers' && headers.length > 1 && <span className="text-xs ml-1 text-[#06B6D4]">({headers.filter(h=>h.active && h.key).length})</span>}
             {tab === 'Body' && requestState.bodyType && requestState.bodyType !== 'none' && <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] ml-2 inline-block"></span>}
+            {tab === 'Scripts' && (requestState.preRequestScript || requestState.postResponseScript) && <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] ml-2 inline-block"></span>}
           </div>
         ))}
       </div>
@@ -67,6 +69,9 @@ function RequestEditor({ requestState, setRequestState, onSend, onSave }) {
         )}
         {activeTab === 'Body' && (
            <BodyEditor requestState={requestState} setRequestState={setRequestState} />
+        )}
+        {activeTab === 'Scripts' && (
+           <ScriptEditor requestState={requestState} setRequestState={setRequestState} />
         )}
         {activeTab === 'Auth' && (
            <AuthEditor requestState={requestState} setRequestState={setRequestState} />
