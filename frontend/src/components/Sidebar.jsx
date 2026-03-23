@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Folder, Clock, Settings, LayoutPanelLeft, ChevronRight, ChevronDown } from 'lucide-react';
+import { Plus, Search, Folder, Clock, Settings, LayoutPanelLeft, ChevronRight, ChevronDown, Star, MoreHorizontal } from 'lucide-react';
 import Logo from './Logo';
 
 function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAccount, onNewRequest, onImport, onLoadRequest }) {
@@ -7,6 +7,13 @@ function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAcc
   const [collections, setCollections] = useState([]);
   const [loading, setLoading] = useState(false);
   const [expandedCollections, setExpandedCollections] = useState({});
+  const [menuParams, setMenuParams] = useState(null);
+
+  useEffect(() => {
+    const handleClickOutside = () => setMenuParams(null);
+    window.addEventListener('click', handleClickOutside);
+    return () => window.removeEventListener('click', handleClickOutside);
+  }, []);
 
   useEffect(() => {
     if (activeNavTab === 'History') {
@@ -124,12 +131,18 @@ function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAcc
                    return (
                      <div key={item.id} className="flex flex-col">
                         <div 
-                          className="flex items-center gap-2 p-2 hover:bg-[var(--bg-tertiary)] rounded-md cursor-pointer text-[var(--text-primary)] transition-colors"
+                          className="flex items-center gap-2 p-2 hover:bg-[var(--bg-tertiary)] rounded-md cursor-pointer text-[var(--text-primary)] transition-colors group"
                           onClick={() => toggleCollection(item.id)}
                         >
                           {isExpanded ? <ChevronDown size={14} className="text-[var(--text-muted)]"/> : <ChevronRight size={14} className="text-[var(--text-muted)]"/>}
                           <Folder size={14} className="text-[var(--accent-cyan)] fill-[var(--accent-cyan)] opacity-20" />
-                          <span className="text-sm font-medium">{item.name}</span>
+                          <span className="text-sm font-medium flex-1">{item.name}</span>
+                          
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
+                             <button className="p-1 hover:text-[var(--accent-cyan)] hover:bg-[var(--bg-primary)] rounded" title="Add request"><Plus size={14} /></button>
+                             <button className="p-1 hover:text-yellow-400 hover:bg-[var(--bg-primary)] rounded" title="Mark as favorite"><Star size={14} /></button>
+                             <button className="p-1 hover:text-[var(--text-primary)] hover:bg-[var(--bg-primary)] rounded"><MoreHorizontal size={14} /></button>
+                          </div>
                         </div>
                         
                         {isExpanded && (
@@ -140,11 +153,22 @@ function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAcc
                                requests.map((req, idx) => (
                                <div 
                                  key={idx} 
-                                 className="flex items-center gap-2 p-1.5 hover:bg-[var(--bg-tertiary)] rounded cursor-pointer text-sm"
+                                 className="flex items-center gap-2 p-1.5 hover:bg-[var(--bg-tertiary)] rounded cursor-pointer text-sm group"
                                  onClick={() => onLoadRequest && onLoadRequest(req)}
                                >
-                                    <span style={{ color: getMethodColor(req.method) }} className="font-bold text-[10px] w-10">{req.method}</span>
-                                    <span className="truncate text-[var(--text-secondary)]">{req.name || req.url}</span>
+                                    <span style={{ color: getMethodColor(req.method) }} className="font-bold text-[10px] w-10 shrink-0">{req.method}</span>
+                                    <span className="truncate text-[var(--text-secondary)] flex-1">{req.name || req.url}</span>
+                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                       <button 
+                                          className="p-1 text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-primary)] rounded"
+                                          onClick={(e) => {
+                                             e.stopPropagation();
+                                             setMenuParams({ x: e.clientX, y: e.clientY, req, collectionId: item.id, idx });
+                                          }}
+                                       >
+                                          <MoreHorizontal size={14} />
+                                       </button>
+                                    </div>
                                  </div>
                                ))
                             )}
@@ -195,6 +219,46 @@ function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAcc
             <Settings size={14} />
          </div>
       </div>
+
+      {menuParams && (
+         <div 
+            className="fixed bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-md shadow-2xl z-[9999] flex flex-col min-w-[180px] py-1 text-sm font-medium"
+            style={{ top: menuParams.y, left: menuParams.x }}
+            onClick={(e) => e.stopPropagation()}
+         >
+            <button className="flex items-center justify-between w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] text-[var(--text-primary)] transition-colors text-left" onClick={() => setMenuParams(null)}>
+               Add example
+            </button>
+            <div className="h-[1px] bg-[var(--border-color)] my-1"></div>
+            <button className="flex items-center justify-between w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] text-[var(--text-primary)] transition-colors text-left" onClick={() => setMenuParams(null)}>
+               Share
+            </button>
+            <button className="flex items-center justify-between w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] text-[var(--text-primary)] transition-colors text-left" onClick={() => { navigator.clipboard.writeText(menuParams.req.url); setMenuParams(null); }}>
+               Copy link
+            </button>
+            <div className="h-[1px] bg-[var(--border-color)] my-1"></div>
+            <button className="flex items-center justify-between w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] text-[var(--text-primary)] transition-colors text-left" onClick={() => setMenuParams(null)}>
+               Ask AI
+            </button>
+            <div className="h-[1px] bg-[var(--border-color)] my-1"></div>
+            <button className="flex items-center justify-between w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] text-[var(--text-primary)] transition-colors text-left group" onClick={() => setMenuParams(null)}>
+               Rename
+               <span className="text-[10px] text-[var(--text-muted)] opacity-50 font-mono tracking-widest leading-none">⌘E</span>
+            </button>
+            <button className="flex items-center justify-between w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] text-[var(--text-primary)] transition-colors text-left" onClick={() => setMenuParams(null)}>
+               Copy
+               <span className="text-[10px] text-[var(--text-muted)] opacity-50 font-mono tracking-widest leading-none">⌘C</span>
+            </button>
+            <button className="flex items-center justify-between w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] text-[var(--text-primary)] transition-colors text-left" onClick={() => setMenuParams(null)}>
+               Duplicate
+               <span className="text-[10px] text-[var(--text-muted)] opacity-50 font-mono tracking-widest leading-none">⌘D</span>
+            </button>
+            <button className="flex items-center justify-between w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] text-red-500 transition-colors text-left" onClick={() => setMenuParams(null)}>
+               Delete
+               <span className="text-[10px] text-[var(--text-muted)] opacity-50 font-mono tracking-widest leading-none bg-red-500/10 px-1 rounded">⌫</span>
+            </button>
+         </div>
+      )}
     </aside>
   );
 }
