@@ -7,6 +7,7 @@ import RequestEditor from './components/RequestEditor';
 import ResponseViewer from './components/ResponseViewer';
 import AccountManager from './components/AccountManager';
 import Header from './components/Header';
+import EnvironmentManager from './components/EnvironmentManager';
 import ImportModal from './components/ImportModal';
 import NewFeatureModal from './components/NewFeatureModal';
 import Login from './components/Login';
@@ -67,9 +68,27 @@ function App() {
   const [tabs, setTabs] = useState([createNewTab()]);
   const [activeTabId, setActiveTabId] = useState(tabs[0].id);
   const [showNewFeatureModal, setShowNewFeatureModal] = useState(false);
+  const [draggedTabId, setDraggedTabId] = useState(null);
   
   const [topPaneHeight, setTopPaneHeight] = useState('50%');
   const [isDraggingDivider, setIsDraggingDivider] = useState(false);
+
+  const [environments, setEnvironments] = useState([]);
+  const [activeEnvId, setActiveEnvId] = useState('');
+  const [isEnvManagerOpen, setIsEnvManagerOpen] = useState(false);
+
+  const fetchEnvironments = async () => {
+    if (!isAuthenticated) return;
+    try {
+      const res = await fetch('/api/environments', { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }});
+      const data = await res.json();
+      setEnvironments(data);
+    } catch(e) {}
+  };
+
+  React.useEffect(() => {
+    if (isAuthenticated) fetchEnvironments();
+  }, [isAuthenticated]);
 
   const handleGoHome = () => {
     window.location.reload();
@@ -107,6 +126,27 @@ function App() {
     setTabs(prev => prev.map(t => t.id === activeTabId ? { ...t, ...newState } : t));
   };
 
+  const handleDragStart = (e, id) => {
+     setDraggedTabId(id);
+     e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; };
+
+  const handleDrop = (e, dropTabId) => {
+     e.preventDefault();
+     if (!draggedTabId || draggedTabId === dropTabId) return;
+     const fromIndex = tabs.findIndex(t => t.id === draggedTabId);
+     const toIndex = tabs.findIndex(t => t.id === dropTabId);
+     if (fromIndex !== -1 && toIndex !== -1) {
+        const newTabs = [...tabs];
+        const [movedTab] = newTabs.splice(fromIndex, 1);
+        newTabs.splice(toIndex, 0, movedTab);
+        setTabs(newTabs);
+     }
+     setDraggedTabId(null);
+  };
+
   const [responseState, setResponseState] = useState(null);
   const [loading, setLoading] = useState(false);
   const [historyRefreshTrigger, setHistoryRefreshTrigger] = useState(0);
@@ -116,13 +156,63 @@ function App() {
     setResponseState(null);
 
     try {
+      const replaceEnvVars = (str, envData) => {
+         if (!str || typeof str !== 'string') return str;
+         return str.replace(/\{\{([^}]+)\}\}/g, (match, key) => {
+            const row = envData.find(e => e.key === key.trim());
+            return row ? row.value : match;
+         });
+      };
+
+      let activeEnvVars = [];
+      if (activeEnvId) {
+         const env = environments.find(e => e.id === activeEnvId);
+         if (env) {
+            try { activeEnvVars = typeof env.data === 'string' ? JSON.parse(env.data) : env.data; } catch(e) {}
+         }
+      }
+
+      let envMutated = false;
+      let pm = {
+         environment: {
+            get: (key) => {
+               const row = activeEnvVars.find(e => e.key === key);
+               return row ? row.value : undefined;
+            },
+            set: (key, value) => {
+               envMutated = true;
+               const row = activeEnvVars.find(e => e.key === key);
+               if (row) row.value = String(value);
+               else activeEnvVars.push({ key, value: String(value), active: true });
+            }
+         },
+         variables: {
+            get: (key) => pm.environment.get(key),
+            set: (key, value) => pm.environment.set(key, value)
+         },
+         request: {
+            url: activeRequest.url,
+            method: activeRequest.method
+         },
+         response: null // Populated post-fetch
+      };
+
+      const reqClone = JSON.parse(JSON.stringify(activeRequest));
+
+      if (reqClone.preRequestScript) {
+         try {
+            const runner = new Function('pm', reqClone.preRequestScript);
+            runner(pm);
+         } catch(e) { console.error("Pre-request script error:", e); }
+      }
+
       // Build URL with params if they exist and are active
-      let finalUrl = activeRequest.url;
+      let finalUrl = replaceEnvVars(reqClone.url, activeEnvVars);
       try {
         const urlObj = new URL(finalUrl.startsWith('http') ? finalUrl : `http://${finalUrl}`);
-        activeRequest.params.forEach(p => {
+        reqClone.params.forEach(p => {
           if (p.active && p.key) {
-             urlObj.searchParams.append(p.key, p.value);
+             urlObj.searchParams.append(replaceEnvVars(p.key, activeEnvVars), replaceEnvVars(p.value, activeEnvVars));
           }
         });
         finalUrl = urlObj.toString();
@@ -133,33 +223,35 @@ function App() {
 
       // Build Headers object
       const compiledHeaders = {};
-      activeRequest.headers.forEach(h => {
+      reqClone.headers.forEach(h => {
         if (h.active && h.key) {
-           compiledHeaders[h.key] = h.value;
+           compiledHeaders[replaceEnvVars(h.key, activeEnvVars)] = replaceEnvVars(h.value, activeEnvVars);
         }
       });
       
       // Auth logic
-      if (activeRequest.authType === 'Bearer Token' && activeRequest.authData.bearerToken) {
-         compiledHeaders['Authorization'] = `Bearer ${activeRequest.authData.bearerToken}`;
-      } else if (activeRequest.authType === 'Basic Auth' && (activeRequest.authData.basicUsername || activeRequest.authData.basicPassword)) {
-         const encoded = btoa(`${activeRequest.authData.basicUsername || ''}:${activeRequest.authData.basicPassword || ''}`);
+      if (reqClone.authType === 'Bearer Token' && reqClone.authData.bearerToken) {
+         compiledHeaders['Authorization'] = `Bearer ${replaceEnvVars(reqClone.authData.bearerToken, activeEnvVars)}`;
+      } else if (reqClone.authType === 'Basic Auth' && (reqClone.authData.basicUsername || reqClone.authData.basicPassword)) {
+         const encoded = btoa(`${replaceEnvVars(reqClone.authData.basicUsername, activeEnvVars) || ''}:${replaceEnvVars(reqClone.authData.basicPassword, activeEnvVars) || ''}`);
          compiledHeaders['Authorization'] = `Basic ${encoded}`;
-      } else if (activeRequest.authType === 'API Key' && activeRequest.authData.apiKeyKey && activeRequest.authData.apiKeyValue) {
-         if (activeRequest.authData.apiKeyAddTo === 'Header') {
-            compiledHeaders[activeRequest.authData.apiKeyKey] = activeRequest.authData.apiKeyValue;
-         } else if (activeRequest.authData.apiKeyAddTo === 'Query Params') {
+      } else if (reqClone.authType === 'API Key' && reqClone.authData.apiKeyKey && reqClone.authData.apiKeyValue) {
+         const keyResolved = replaceEnvVars(reqClone.authData.apiKeyKey, activeEnvVars);
+         const valResolved = replaceEnvVars(reqClone.authData.apiKeyValue, activeEnvVars);
+         if (reqClone.authData.apiKeyAddTo === 'Header') {
+            compiledHeaders[keyResolved] = valResolved;
+         } else if (reqClone.authData.apiKeyAddTo === 'Query Params') {
             const urlObj = new URL(finalUrl);
-            urlObj.searchParams.append(activeRequest.authData.apiKeyKey, activeRequest.authData.apiKeyValue);
+            urlObj.searchParams.append(keyResolved, valResolved);
             finalUrl = urlObj.toString();
          }
       }
 
       // Body logic
       let finalData = undefined;
-      if (activeRequest.method !== 'GET' && activeRequest.method !== 'HEAD') {
-         if (activeRequest.bodyType === 'raw') {
-            finalData = activeRequest.bodyRaw;
+      if (reqClone.method !== 'GET' && reqClone.method !== 'HEAD') {
+         if (reqClone.bodyType === 'raw') {
+            finalData = replaceEnvVars(reqClone.bodyRaw, activeEnvVars);
             if (!Object.keys(compiledHeaders).some(k => k.toLowerCase() === 'content-type') && finalData) {
                 try {
                    JSON.parse(finalData);
@@ -167,24 +259,24 @@ function App() {
                 // eslint-disable-next-line no-unused-vars
                 } catch(e) { /* non-json raw */ }
             }
-         } else if (activeRequest.bodyType === 'x-www-form-urlencoded') {
+         } else if (reqClone.bodyType === 'x-www-form-urlencoded') {
             const params = new URLSearchParams();
-            activeRequest.bodyUrlEncoded.forEach(item => {
-               if (item.active && item.key) params.append(item.key, item.value);
+            reqClone.bodyUrlEncoded.forEach(item => {
+               if (item.active && item.key) params.append(replaceEnvVars(item.key, activeEnvVars), replaceEnvVars(item.value, activeEnvVars));
             });
             finalData = params.toString();
             compiledHeaders['Content-Type'] = 'application/x-www-form-urlencoded';
-         } else if (activeRequest.bodyType === 'form-data') {
+         } else if (reqClone.bodyType === 'form-data') {
             const fdObj = {};
-            activeRequest.bodyFormData.forEach(item => {
-               if (item.active && item.key) fdObj[item.key] = item.value;
+            reqClone.bodyFormData.forEach(item => {
+               if (item.active && item.key) fdObj[replaceEnvVars(item.key, activeEnvVars)] = replaceEnvVars(item.value, activeEnvVars);
             });
             finalData = fdObj;
             compiledHeaders['Content-Type'] = 'multipart/form-data'; 
-         } else if (activeRequest.bodyType === 'GraphQL') {
+         } else if (reqClone.bodyType === 'GraphQL') {
             finalData = {
-               query: activeRequest.bodyGraphQLQuery,
-               variables: activeRequest.bodyGraphQLVariables ? JSON.parse(activeRequest.bodyGraphQLVariables) : {}
+               query: replaceEnvVars(reqClone.bodyGraphQLQuery, activeEnvVars),
+               variables: reqClone.bodyGraphQLVariables ? JSON.parse(replaceEnvVars(reqClone.bodyGraphQLVariables, activeEnvVars)) : {}
             };
             compiledHeaders['Content-Type'] = 'application/json';
          }
@@ -192,7 +284,7 @@ function App() {
 
       const proxyPayload = {
         url: finalUrl,
-        method: activeRequest.method,
+        method: reqClone.method,
         headers: compiledHeaders,
         data: finalData
       };
@@ -208,6 +300,30 @@ function App() {
 
       const data = await res.json();
       setResponseState(data);
+
+      pm.response = {
+         json: () => data.data,
+         text: () => typeof data.data === 'string' ? data.data : JSON.stringify(data.data),
+         code: data.status
+      };
+
+      if (reqClone.postResponseScript) {
+         try {
+            const runner = new Function('pm', reqClone.postResponseScript);
+            runner(pm);
+         } catch(e) { console.error("Post-response script error:", e); }
+      }
+
+      if (envMutated && activeEnvId) {
+         const env = environments.find(e => e.id === activeEnvId);
+         if (env) {
+            fetch(`/api/environments/${activeEnvId}`, {
+               method: 'PUT',
+               headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+               body: JSON.stringify({ name: env.name, data: activeEnvVars })
+            }).then(() => fetchEnvironments());
+         }
+      }
 
       setHistoryRefreshTrigger(prev => prev + 1);
 
@@ -403,7 +519,21 @@ function App() {
 
   return (
     <div className="flex flex-col h-screen w-screen bg-[var(--bg-primary)] overflow-hidden">
-      <Header onLogout={handleLogout} onGoHome={handleGoHome} />
+      <Header 
+         onLogout={handleLogout} 
+         onGoHome={handleGoHome} 
+         environments={environments}
+         activeEnvId={activeEnvId}
+         setActiveEnvId={setActiveEnvId}
+         openEnvManager={() => setIsEnvManagerOpen(true)}
+      />
+      {isEnvManagerOpen && (
+         <EnvironmentManager 
+            onClose={() => setIsEnvManagerOpen(false)}
+            environments={environments}
+            fetchEnvironments={fetchEnvironments}
+         />
+      )}
       <div className="flex flex-1 overflow-hidden relative">
         <Sidebar 
           activeNavTab={activeNavTab} 
@@ -467,8 +597,13 @@ function App() {
                   return (
                   <div 
                      key={tab.id}
+                     draggable
+                     onDragStart={(e) => handleDragStart(e, tab.id)}
+                     onDragOver={handleDragOver}
+                     onDrop={(e) => handleDrop(e, tab.id)}
+                     onDragEnd={() => setDraggedTabId(null)}
                      onClick={() => setActiveTabId(tab.id)}
-                     className={`flex items-center gap-2 px-3 h-full cursor-pointer min-w-[150px] max-w-[200px] border-t-2 border-r border-[var(--border-color)] rounded-tr-md transition-colors ${activeTabId === tab.id ? 'bg-[var(--bg-primary)] border-t-[#06B6D4]' : 'bg-transparent border-t-transparent hover:bg-[var(--bg-tertiary)]'}`}
+                     className={`flex items-center gap-2 px-3 h-full cursor-pointer min-w-[150px] max-w-[200px] border-t-2 border-r border-[var(--border-color)] rounded-tr-md transition-colors ${activeTabId === tab.id ? 'bg-[var(--bg-primary)] border-t-[#06B6D4]' : 'bg-transparent border-t-transparent hover:bg-[var(--bg-tertiary)]'} ${draggedTabId === tab.id ? 'opacity-50' : ''}`}
                   >
                      <span className="text-[10px] font-bold" style={{ color: `var(--status-${tab.method.toLowerCase()})` }}>{tab.method}</span>
                      <span className={`text-sm truncate flex-1 ${activeTabId === tab.id ? 'text-[var(--text-primary)]' : 'text-[var(--text-secondary)]'}`}>{displayUrl}</span>

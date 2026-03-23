@@ -28,6 +28,14 @@ async function initDb() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
+    CREATE TABLE IF NOT EXISTS environments (
+      id TEXT PRIMARY KEY,
+      name TEXT,
+      data JSON,
+      workspace_id TEXT DEFAULT 'default',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
     CREATE TABLE IF NOT EXISTS members (
       id TEXT PRIMARY KEY,
       name TEXT,
@@ -68,6 +76,7 @@ async function initDb() {
   try {
     db.exec('ALTER TABLE history ADD COLUMN user_id TEXT REFERENCES users(id)');
     db.exec('ALTER TABLE collections ADD COLUMN user_id TEXT REFERENCES users(id)');
+    db.exec('ALTER TABLE environments ADD COLUMN user_id TEXT REFERENCES users(id)');
     db.exec('ALTER TABLE workspaces ADD COLUMN user_id TEXT REFERENCES users(id)');
   } catch(e) {}
 
@@ -108,6 +117,32 @@ function updateCollection(id, data, userId) {
   const stmt = db.prepare('UPDATE collections SET data = ? WHERE id = ? AND user_id = ?');
   stmt.run(JSON.stringify(data), id, userId);
   return { id, data };
+}
+
+// --- Environments ---
+function getEnvironments(userId) {
+  if (!userId) return [];
+  const stmt = db.prepare('SELECT * FROM environments WHERE user_id = ? ORDER BY created_at DESC');
+  return stmt.all(userId);
+}
+
+function createEnvironment(name, data, userId) {
+  const id = uuidv4();
+  const stmt = db.prepare('INSERT INTO environments (id, name, data, user_id) VALUES (?, ?, ?, ?)');
+  stmt.run(id, name, JSON.stringify(data), userId);
+  return { id, name, data };
+}
+
+function updateEnvironment(id, name, data, userId) {
+  const stmt = db.prepare('UPDATE environments SET name = ?, data = ? WHERE id = ? AND user_id = ?');
+  stmt.run(name, JSON.stringify(data), id, userId);
+  return { id, name, data };
+}
+
+function deleteEnvironment(id, userId) {
+  const stmt = db.prepare('DELETE FROM environments WHERE id = ? AND user_id = ?');
+  stmt.run(id, userId);
+  return true;
 }
 
 // --- Members ---
@@ -254,6 +289,10 @@ module.exports = {
   getCollections,
   createCollection,
   updateCollection,
+  getEnvironments,
+  createEnvironment,
+  updateEnvironment,
+  deleteEnvironment,
   getMembers,
   addMember,
   updateMemberRole,

@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronDown, Plus, Trash, Edit2, Check, X } from 'lucide-react';
+import { ChevronDown, Plus, Trash, Edit2, Check, X, Settings2 } from 'lucide-react';
 import Logo from './Logo';
 
-function Header({ onLogout, onGoHome }) {
+function Header({ onLogout, onGoHome, environments, activeEnvId, setActiveEnvId, openEnvManager }) {
   const [workspaces, setWorkspaces] = useState([]);
   const [activeWorkspace, setActiveWorkspace] = useState(null);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -206,7 +206,29 @@ function Header({ onLogout, onGoHome }) {
       
       {/* Right side Header Icons could go here (Sync, Settings, Profile) */}
       <div className="flex items-center gap-4">
-        <div className="text-xs text-[var(--accent-cyan)] font-medium border border-[var(--accent-cyan)] rounded px-3 py-1 bg-cyan-900 bg-opacity-20 cursor-default">
+        
+        {/* Environment Selector */}
+        <div className="flex items-center border border-[var(--border-color)] rounded bg-[var(--bg-secondary)] h-7 transition-colors">
+            <select 
+               className="bg-transparent text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] outline-none cursor-pointer pl-2 py-1 appearance-none w-[130px] border-r border-[var(--border-color)] leading-none"
+               value={activeEnvId || ''}
+               onChange={(e) => setActiveEnvId(e.target.value)}
+            >
+               <option className="bg-[var(--bg-secondary)]" value="">No Environment</option>
+               {environments && environments.map(env => (
+                  <option className="bg-[var(--bg-secondary)]" key={env.id} value={env.id}>{env.name}</option>
+               ))}
+            </select>
+            <button 
+               onClick={openEnvManager}
+               className="px-2 h-full flex items-center justify-center hover:bg-[var(--bg-tertiary)] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors rounded-r"
+               title="Manage Environments"
+            >
+               <Settings2 size={12} />
+            </button>
+        </div>
+
+        <div className="text-xs text-[var(--accent-cyan)] font-medium border border-[var(--accent-cyan)] rounded px-3 py-1.5 bg-cyan-900 bg-opacity-20 cursor-default">
            {activeWorkspace ? activeWorkspace.name : 'Loading Workspace...'}
         </div>
         {onLogout && (

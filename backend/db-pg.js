@@ -34,6 +34,14 @@ async function initDb() {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
 
+    CREATE TABLE IF NOT EXISTS environments (
+      id TEXT PRIMARY KEY,
+      name TEXT,
+      data JSONB,
+      workspace_id TEXT DEFAULT 'default',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
     CREATE TABLE IF NOT EXISTS members (
       id TEXT PRIMARY KEY,
       name TEXT,
@@ -73,6 +81,7 @@ async function initDb() {
   try {
     await pool.query('ALTER TABLE history ADD COLUMN IF NOT EXISTS user_id TEXT REFERENCES users(id) ON DELETE CASCADE;');
     await pool.query('ALTER TABLE collections ADD COLUMN IF NOT EXISTS user_id TEXT REFERENCES users(id) ON DELETE CASCADE;');
+    await pool.query('ALTER TABLE environments ADD COLUMN IF NOT EXISTS user_id TEXT REFERENCES users(id) ON DELETE CASCADE;');
     await pool.query('ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS user_id TEXT REFERENCES users(id) ON DELETE CASCADE;');
   } catch(e) { /* ignore pg versions that lack IF NOT EXISTS or other conflicts */ }
 
@@ -108,6 +117,28 @@ async function createCollection(name, data, userId) {
 async function updateCollection(id, data, userId) {
   await pool.query('UPDATE collections SET data = $1 WHERE id = $2 AND user_id = $3', [JSON.stringify(data), id, userId]);
   return { id, data };
+}
+
+async function getEnvironments(userId) {
+  if (!pool || !userId) return [];
+  const res = await pool.query('SELECT * FROM environments WHERE user_id = $1 ORDER BY created_at DESC', [userId]);
+  return res.rows;
+}
+
+async function createEnvironment(name, data, userId) {
+  const id = uuidv4();
+  await pool.query('INSERT INTO environments (id, name, data, user_id) VALUES ($1, $2, $3, $4)', [id, name, JSON.stringify(data), userId]);
+  return { id, name, data };
+}
+
+async function updateEnvironment(id, name, data, userId) {
+  await pool.query('UPDATE environments SET name = $1, data = $2 WHERE id = $3 AND user_id = $4', [name, JSON.stringify(data), id, userId]);
+  return { id, name, data };
+}
+
+async function deleteEnvironment(id, userId) {
+  await pool.query('DELETE FROM environments WHERE id = $1 AND user_id = $2', [id, userId]);
+  return true;
 }
 
 async function getMembers() {
@@ -237,6 +268,7 @@ async function updatePasswordByEmail(email, passwordHash) {
 
 module.exports = {
   initDb, saveHistory, getHistory, getCollections, createCollection, updateCollection,
+  getEnvironments, createEnvironment, updateEnvironment, deleteEnvironment,
   getMembers, addMember, updateMemberRole, removeMember, getWorkspaces, addWorkspace,
   updateWorkspace, deleteWorkspace, createUser, getUserByEmailOrUsername, getUserById,
   createSession, getUserBySession, deleteSession, saveOtp, verifyOtp, verifyResetToken,

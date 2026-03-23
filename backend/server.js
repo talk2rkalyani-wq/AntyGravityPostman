@@ -196,6 +196,7 @@ app.post('/api/auth/reset-password', async (req, res) => {
 
 app.use('/api/history', requireAuth);
 app.use('/api/collections', requireAuth);
+app.use('/api/environments', requireAuth);
 app.use('/api/members', requireAuth);
 app.use('/api/workspaces', requireAuth);
 
@@ -218,6 +219,27 @@ app.put('/api/collections/:id', async (req, res) => {
   const { data } = req.body;
   if (!data) return res.status(400).json({ error: 'Data is required.' });
   try { res.json(await db.updateCollection(id, data, req.user.id)); } catch(e){ res.status(500).json({error:e.message}); }
+});
+
+app.get('/api/environments', async (req, res) => {
+  try { res.json(await db.getEnvironments(req.user.id)); } catch(e) { res.status(500).json({error:e.message}); }
+});
+
+app.post('/api/environments', async (req, res) => {
+  const { name, data } = req.body;
+  if (!name || !data) return res.status(400).json({ error: 'Name and Data are required.' });
+  try { res.status(201).json(await db.createEnvironment(name, data, req.user.id)); } catch(e){ res.status(500).json({error:e.message}); }
+});
+
+app.put('/api/environments/:id', async (req, res) => {
+  const { id } = req.params;
+  const { name, data } = req.body;
+  if (!name || !data) return res.status(400).json({ error: 'Name and Data are required.' });
+  try { res.json(await db.updateEnvironment(id, name, data, req.user.id)); } catch(e){ res.status(500).json({error:e.message}); }
+});
+
+app.delete('/api/environments/:id', async (req, res) => {
+  try { await db.deleteEnvironment(req.params.id, req.user.id); res.status(204).send(); } catch(e){ res.status(500).json({error:e.message}); }
 });
 
 app.get('/api/members', async (req, res) => {

@@ -59,6 +59,49 @@ function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAcc
     setExpandedCollections(prev => ({...prev, [id]: !prev[id]}));
   };
 
+  const handleExportCollection = (collection) => {
+     setMenuParams(null);
+     let data = {};
+     try {
+       data = typeof collection.data === 'string' ? JSON.parse(collection.data) : collection.data;
+     } catch(e) { data = {}; }
+     
+     const exportPayload = {
+        info: {
+           name: collection.name,
+           schema: "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+        },
+        item: (data.requests || []).map(req => ({
+           name: req.name || req.url,
+           request: {
+              method: req.method,
+              header: (req.headers || []).filter(h => h.active && h.key).map(h => ({ key: h.key, value: h.value })),
+              url: {
+                 raw: req.url,
+                 host: req.url.split('/')
+              },
+              body: req.bodyType !== 'none' ? {
+                 mode: req.bodyType === 'raw' ? 'raw' : req.bodyType === 'GraphQL' ? 'graphql' : req.bodyType === 'form-data' ? 'formdata' : 'urlencoded',
+                 raw: req.bodyRaw,
+                 graphql: req.bodyType === 'GraphQL' ? { query: req.bodyGraphQLQuery, variables: req.bodyGraphQLVariables } : undefined,
+                 formdata: req.bodyType === 'form-data' ? req.bodyFormData : undefined,
+                 urlencoded: req.bodyType === 'x-www-form-urlencoded' ? req.bodyUrlEncoded : undefined
+              } : undefined
+           }
+        }))
+     };
+     
+     const blob = new Blob([JSON.stringify(exportPayload, null, 2)], { type: 'application/json' });
+     const url = URL.createObjectURL(blob);
+     const a = document.createElement('a');
+     a.href = url;
+     a.download = `${(collection.name || 'Export').replace(/\s+/g, '_')}_collection.json`;
+     document.body.appendChild(a);
+     a.click();
+     document.body.removeChild(a);
+     URL.revokeObjectURL(url);
+  };
+
   return (
     <aside className="sidebar shrink-0 relative bg-[var(--bg-secondary)] border-r border-[var(--border-color)]">
       
@@ -141,7 +184,15 @@ function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAcc
                           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
                              <button className="p-1 hover:text-[var(--accent-cyan)] hover:bg-[var(--bg-primary)] rounded" title="Add request"><Plus size={14} /></button>
                              <button className="p-1 hover:text-yellow-400 hover:bg-[var(--bg-primary)] rounded" title="Mark as favorite"><Star size={14} /></button>
-                             <button className="p-1 hover:text-[var(--text-primary)] hover:bg-[var(--bg-primary)] rounded"><MoreHorizontal size={14} /></button>
+                             <button 
+                               className="p-1 hover:text-[var(--text-primary)] hover:bg-[var(--bg-primary)] rounded"
+                               onClick={(e) => {
+                                  e.stopPropagation();
+                                  setMenuParams({ x: e.clientX, y: e.clientY, isCollectionMenu: true, collection: item });
+                               }}
+                             >
+                               <MoreHorizontal size={14} />
+                             </button>
                           </div>
                         </div>
                         
@@ -158,17 +209,17 @@ function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAcc
                                >
                                     <span style={{ color: getMethodColor(req.method) }} className="font-bold text-[10px] w-10 shrink-0">{req.method}</span>
                                     <span className="truncate text-[var(--text-secondary)] flex-1">{req.name || req.url}</span>
-                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                       <button 
-                                          className="p-1 text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-primary)] rounded"
-                                          onClick={(e) => {
-                                             e.stopPropagation();
-                                             setMenuParams({ x: e.clientX, y: e.clientY, req, collectionId: item.id, idx });
-                                          }}
-                                       >
-                                          <MoreHorizontal size={14} />
-                                       </button>
-                                    </div>
+                                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button 
+                                           className="p-1 text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-primary)] rounded"
+                                           onClick={(e) => {
+                                              e.stopPropagation();
+                                              setMenuParams({ x: e.clientX, y: e.clientY, isCollectionMenu: false, req, collectionId: item.id, idx });
+                                           }}
+                                        >
+                                           <MoreHorizontal size={14} />
+                                        </button>
+                                     </div>
                                  </div>
                                ))
                             )}
@@ -226,9 +277,21 @@ function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAcc
             style={{ top: menuParams.y, left: menuParams.x }}
             onClick={(e) => e.stopPropagation()}
          >
-            <button className="flex items-center justify-between w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] text-[var(--text-primary)] transition-colors text-left" onClick={() => setMenuParams(null)}>
-               Add example
-            </button>
+            {menuParams.isCollectionMenu ? (
+               <>
+                 <button className="flex items-center justify-between w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] text-[var(--text-primary)] transition-colors text-left" onClick={() => handleExportCollection(menuParams.collection)}>
+                    Export (Postman JSON)
+                 </button>
+                 <div className="h-[1px] bg-[var(--border-color)] my-1"></div>
+                 <button className="flex items-center justify-between w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] text-red-500 hover:text-red-400 transition-colors text-left" onClick={() => { setMenuParams(null); }}>
+                    Delete
+                 </button>
+               </>
+            ) : (
+               <>
+                 <button className="flex items-center justify-between w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] text-[var(--text-primary)] transition-colors text-left" onClick={() => setMenuParams(null)}>
+                    Add example
+                 </button>
             <div className="h-[1px] bg-[var(--border-color)] my-1"></div>
             <button className="flex items-center justify-between w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] text-[var(--text-primary)] transition-colors text-left" onClick={() => setMenuParams(null)}>
                Share
@@ -255,8 +318,10 @@ function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAcc
             </button>
             <button className="flex items-center justify-between w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] text-red-500 transition-colors text-left" onClick={() => setMenuParams(null)}>
                Delete
-               <span className="text-[10px] text-[var(--text-muted)] opacity-50 font-mono tracking-widest leading-none bg-red-500/10 px-1 rounded">⌫</span>
+               <span className="text-[10px] text-[var(--status-delete)] opacity-50 font-mono tracking-widest leading-none bg-red-500/10 px-1 rounded">⌫</span>
             </button>
+               </>
+            )}
          </div>
       )}
     </aside>
