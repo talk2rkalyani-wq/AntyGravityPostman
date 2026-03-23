@@ -221,6 +221,14 @@ app.put('/api/collections/:id', async (req, res) => {
   try { res.json(await db.updateCollection(id, data, req.user.id)); } catch(e){ res.status(500).json({error:e.message}); }
 });
 
+app.delete('/api/collections/:id', async (req, res) => {
+  const { id } = req.params;
+  try { 
+      await db.deleteCollection(id, req.user.id);
+      res.json({ message: 'Collection deleted successfully' }); 
+  } catch(e){ res.status(500).json({error:e.message}); }
+});
+
 app.get('/api/environments', async (req, res) => {
   try { res.json(await db.getEnvironments(req.user.id)); } catch(e) { res.status(500).json({error:e.message}); }
 });
