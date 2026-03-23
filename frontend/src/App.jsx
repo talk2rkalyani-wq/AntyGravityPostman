@@ -10,6 +10,7 @@ import Header from './components/Header';
 import EnvironmentManager from './components/EnvironmentManager';
 import ImportModal from './components/ImportModal';
 import NewFeatureModal from './components/NewFeatureModal';
+import SaveRequestModal from './components/SaveRequestModal';
 import Login from './components/Login';
 import Signup from './components/Signup';
 import ForgotPassword from './components/ForgotPassword';
@@ -68,6 +69,7 @@ function App() {
   const [tabs, setTabs] = useState([createNewTab()]);
   const [activeTabId, setActiveTabId] = useState(tabs[0].id);
   const [showNewFeatureModal, setShowNewFeatureModal] = useState(false);
+  const [showSaveModal, setShowSaveModal] = useState(false);
   const [draggedTabId, setDraggedTabId] = useState(null);
   
   const [topPaneHeight, setTopPaneHeight] = useState('50%');
@@ -340,12 +342,7 @@ function App() {
     }
   };
 
-   const handleSaveToCollection = async () => {
-     const reqName = prompt("Enter Request Name:", activeRequest.name || "My Request");
-     if (!reqName) return;
-     const colName = prompt("Enter Collection Name (or create new):", "My Collection");
-     if (!colName) return;
-
+   const handleSaveToCollectionModal = async (reqName, colName) => {
      const dataToSave = {
         ...activeRequest,
         name: reqName,
@@ -363,7 +360,7 @@ function App() {
         const existing = collections.find(c => c.name === colName);
 
         if (existing) {
-           const existingData = typeof existing.data === 'string' ? JSON.parse(existing.data) : existing.data;
+           let existingData = typeof existing.data === 'string' ? JSON.parse(existing.data) : existing.data;
            if (!existingData.requests) existingData.requests = [];
            existingData.requests.push(dataToSave);
            
@@ -387,14 +384,17 @@ function App() {
            });
         }
         
-        // Switch to collections tab and re-fetch to show new data
         setActiveNavTab('Collections');
-        setHistoryRefreshTrigger(prev => prev + 1); // We can reuse this trigger for collections too in Sidebar
-        alert(`Saved "${reqName}" to collection "${colName}"`);
+        setHistoryRefreshTrigger(prev => prev + 1);
+        setShowSaveModal(false);
      } catch(e) {
         alert('Failed to save collection: ' + e.message);
      }
-  };
+   };
+
+   const handleSaveToCollection = () => {
+      setShowSaveModal(true);
+   };
 
    const handleImportCompleteCollection = async (colName, requestsArray) => {
      try {
@@ -497,6 +497,9 @@ function App() {
   const handleNewRequest = (type = 'modal') => {
     if (type === 'modal') {
        setShowNewFeatureModal(true);
+    } else if (type === 'collection') {
+       setShowNewFeatureModal(false);
+       setShowSaveModal(true);
     } else if (type === 'http') {
        const newTab = createNewTab();
        setTabs(prev => [...prev, newTab]);
@@ -664,6 +667,13 @@ function App() {
            onClose={() => setShowNewFeatureModal(false)}
            onSelect={handleNewRequest}
         />
+      )}
+      {showSaveModal && (
+         <SaveRequestModal 
+            onClose={() => setShowSaveModal(false)}
+            onSave={handleSaveToCollectionModal}
+            activeRequestName={activeRequest.name || activeRequest.url.split('/').pop()}
+         />
       )}
       {showImportModal && (
         <ImportModal 

@@ -35,7 +35,7 @@ function NewFeatureModal({ onClose, onSelect }) {
                         className="flex flex-col items-center justify-center p-6 border border-gray-200 rounded-lg cursor-pointer hover:border-blue-500 hover:bg-blue-50/50 hover:shadow-sm transition-all gap-3"
                         onMouseEnter={() => setHovered(tile)}
                         onClick={() => {
-                            if (tile.id === 'http') {
+                            if (tile.id === 'http' || tile.id === 'collection') {
                                onSelect(tile.id);
                             } else {
                                alert('Feature coming soon!');
