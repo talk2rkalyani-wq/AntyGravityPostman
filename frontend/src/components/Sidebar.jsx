@@ -59,7 +59,7 @@ function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAcc
       <div className="px-4 pt-4 pb-2 flex items-center gap-2 border-b border-[var(--border-color)]">
          <button 
            className="bg-[var(--bg-tertiary)] hover:bg-[var(--border-color)] text-[var(--text-primary)] px-3 py-1.5 rounded text-sm font-medium transition-colors border border-[transparent] hover:border-[var(--text-muted)]"
-           onClick={onNewRequest}
+           onClick={() => onNewRequest('modal')}
          >
             New
          </button>
@@ -68,10 +68,6 @@ function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAcc
            onClick={onImport}
          >
             Import
-         </button>
-         <div className="flex-1" />
-         <button className="text-[var(--text-secondary)] hover:text-[#06B6D4] p-1 transition-colors" onClick={onNewRequest} title="New Request">
-            <Plus size={20} />
          </button>
       </div>
 
@@ -92,14 +88,21 @@ function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAcc
         </div>
       </div>
 
-      <div className="px-4 py-2">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--text-muted)]" size={14} />
-          <input 
-            type="text" 
-            placeholder="Filter..." 
-            className="input-field w-full !pl-9 py-1.5 text-sm bg-[var(--bg-primary)]"
-          />
+      <div className="px-4 py-2 mt-2 border-b border-transparent">
+        <div className="flex items-center gap-2">
+          {activeNavTab === 'Collections' && (
+             <button className="text-[var(--text-secondary)] hover:text-[#06B6D4] p-1 transition-colors shrink-0" onClick={() => onNewRequest('http')} title="New Request">
+                <Plus size={16} strokeWidth={2} />
+             </button>
+          )}
+          <div className="relative flex-1">
+            <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-[var(--text-muted)] opacity-50" size={14} />
+            <input 
+              type="text" 
+              placeholder={`Search ${activeNavTab.toLowerCase()}...`}
+              className="input-field w-full !pl-8 py-1.5 text-xs bg-[var(--bg-primary)] border border-transparent focus:border-[var(--border-color)] hover:border-[var(--border-color)] transition-colors rounded"
+            />
+          </div>
         </div>
       </div>
 

@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
+import { Plus, X } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import RequestEditor from './components/RequestEditor';
 import ResponseViewer from './components/ResponseViewer';
 import AccountManager from './components/AccountManager';
 import Header from './components/Header';
 import ImportModal from './components/ImportModal';
+import NewFeatureModal from './components/NewFeatureModal';
 import Login from './components/Login';
 import Signup from './components/Signup';
 import ForgotPassword from './components/ForgotPassword';
@@ -40,9 +42,11 @@ function App() {
     setResponseState(null);
   };
   
-  const [requestState, setRequestState] = useState({
+  const createNewTab = () => ({
+    id: window.crypto.randomUUID(),
+    name: 'Untitled Request',
     method: 'GET',
-    url: 'https://jsonplaceholder.typicode.com/todos/1',
+    url: '',
     activeTab: 'Params',
     params: [{ key: '', value: '', description: '', active: true }],
     headers: [{ key: '', value: '', description: '', active: true }],
@@ -56,6 +60,16 @@ function App() {
     authData: {}
   });
 
+  const [tabs, setTabs] = useState([createNewTab()]);
+  const [activeTabId, setActiveTabId] = useState(tabs[0].id);
+  const [showNewFeatureModal, setShowNewFeatureModal] = useState(false);
+
+  const activeRequest = tabs.find(t => t.id === activeTabId) || tabs[0];
+
+  const updateActiveRequest = (newState) => {
+    setTabs(prev => prev.map(t => t.id === activeTabId ? { ...t, ...newState } : t));
+  };
+
   const [responseState, setResponseState] = useState(null);
   const [loading, setLoading] = useState(false);
   const [historyRefreshTrigger, setHistoryRefreshTrigger] = useState(0);
@@ -66,10 +80,10 @@ function App() {
 
     try {
       // Build URL with params if they exist and are active
-      let finalUrl = requestState.url;
+      let finalUrl = activeRequest.url;
       try {
         const urlObj = new URL(finalUrl.startsWith('http') ? finalUrl : `http://${finalUrl}`);
-        requestState.params.forEach(p => {
+        activeRequest.params.forEach(p => {
           if (p.active && p.key) {
              urlObj.searchParams.append(p.key, p.value);
           }
@@ -82,33 +96,33 @@ function App() {
 
       // Build Headers object
       const compiledHeaders = {};
-      requestState.headers.forEach(h => {
+      activeRequest.headers.forEach(h => {
         if (h.active && h.key) {
            compiledHeaders[h.key] = h.value;
         }
       });
       
       // Auth logic
-      if (requestState.authType === 'Bearer Token' && requestState.authData.bearerToken) {
-         compiledHeaders['Authorization'] = `Bearer ${requestState.authData.bearerToken}`;
-      } else if (requestState.authType === 'Basic Auth' && (requestState.authData.basicUsername || requestState.authData.basicPassword)) {
-         const encoded = btoa(`${requestState.authData.basicUsername || ''}:${requestState.authData.basicPassword || ''}`);
+      if (activeRequest.authType === 'Bearer Token' && activeRequest.authData.bearerToken) {
+         compiledHeaders['Authorization'] = `Bearer ${activeRequest.authData.bearerToken}`;
+      } else if (activeRequest.authType === 'Basic Auth' && (activeRequest.authData.basicUsername || activeRequest.authData.basicPassword)) {
+         const encoded = btoa(`${activeRequest.authData.basicUsername || ''}:${activeRequest.authData.basicPassword || ''}`);
          compiledHeaders['Authorization'] = `Basic ${encoded}`;
-      } else if (requestState.authType === 'API Key' && requestState.authData.apiKeyKey && requestState.authData.apiKeyValue) {
-         if (requestState.authData.apiKeyAddTo === 'Header') {
-            compiledHeaders[requestState.authData.apiKeyKey] = requestState.authData.apiKeyValue;
-         } else if (requestState.authData.apiKeyAddTo === 'Query Params') {
+      } else if (activeRequest.authType === 'API Key' && activeRequest.authData.apiKeyKey && activeRequest.authData.apiKeyValue) {
+         if (activeRequest.authData.apiKeyAddTo === 'Header') {
+            compiledHeaders[activeRequest.authData.apiKeyKey] = activeRequest.authData.apiKeyValue;
+         } else if (activeRequest.authData.apiKeyAddTo === 'Query Params') {
             const urlObj = new URL(finalUrl);
-            urlObj.searchParams.append(requestState.authData.apiKeyKey, requestState.authData.apiKeyValue);
+            urlObj.searchParams.append(activeRequest.authData.apiKeyKey, activeRequest.authData.apiKeyValue);
             finalUrl = urlObj.toString();
          }
       }
 
       // Body logic
       let finalData = undefined;
-      if (requestState.method !== 'GET' && requestState.method !== 'HEAD') {
-         if (requestState.bodyType === 'raw') {
-            finalData = requestState.bodyRaw;
+      if (activeRequest.method !== 'GET' && activeRequest.method !== 'HEAD') {
+         if (activeRequest.bodyType === 'raw') {
+            finalData = activeRequest.bodyRaw;
             if (!Object.keys(compiledHeaders).some(k => k.toLowerCase() === 'content-type') && finalData) {
                 try {
                    JSON.parse(finalData);
@@ -116,24 +130,24 @@ function App() {
                 // eslint-disable-next-line no-unused-vars
                 } catch(e) { /* non-json raw */ }
             }
-         } else if (requestState.bodyType === 'x-www-form-urlencoded') {
+         } else if (activeRequest.bodyType === 'x-www-form-urlencoded') {
             const params = new URLSearchParams();
-            requestState.bodyUrlEncoded.forEach(item => {
+            activeRequest.bodyUrlEncoded.forEach(item => {
                if (item.active && item.key) params.append(item.key, item.value);
             });
             finalData = params.toString();
             compiledHeaders['Content-Type'] = 'application/x-www-form-urlencoded';
-         } else if (requestState.bodyType === 'form-data') {
+         } else if (activeRequest.bodyType === 'form-data') {
             const fdObj = {};
-            requestState.bodyFormData.forEach(item => {
+            activeRequest.bodyFormData.forEach(item => {
                if (item.active && item.key) fdObj[item.key] = item.value;
             });
             finalData = fdObj;
             compiledHeaders['Content-Type'] = 'multipart/form-data'; 
-         } else if (requestState.bodyType === 'GraphQL') {
+         } else if (activeRequest.bodyType === 'GraphQL') {
             finalData = {
-               query: requestState.bodyGraphQLQuery,
-               variables: requestState.bodyGraphQLVariables ? JSON.parse(requestState.bodyGraphQLVariables) : {}
+               query: activeRequest.bodyGraphQLQuery,
+               variables: activeRequest.bodyGraphQLVariables ? JSON.parse(activeRequest.bodyGraphQLVariables) : {}
             };
             compiledHeaders['Content-Type'] = 'application/json';
          }
@@ -141,7 +155,7 @@ function App() {
 
       const proxyPayload = {
         url: finalUrl,
-        method: requestState.method,
+        method: activeRequest.method,
         headers: compiledHeaders,
         data: finalData
       };
@@ -174,18 +188,18 @@ function App() {
   };
 
    const handleSaveToCollection = async () => {
-     const reqName = prompt("Enter Request Name:", "My Request");
+     const reqName = prompt("Enter Request Name:", activeRequest.name || "My Request");
      if (!reqName) return;
      const colName = prompt("Enter Collection Name (or create new):", "My Collection");
      if (!colName) return;
 
      const dataToSave = {
-        ...requestState,
+        ...activeRequest,
         name: reqName,
-        params: requestState.params.filter(p => p.key || p.value),
-        headers: requestState.headers.filter(h => h.key || h.value),
-        bodyFormData: requestState.bodyFormData.filter(p => p.key || p.value),
-        bodyUrlEncoded: requestState.bodyUrlEncoded.filter(p => p.key || p.value)
+        params: activeRequest.params.filter(p => p.key || p.value),
+        headers: activeRequest.headers.filter(h => h.key || h.value),
+        bodyFormData: activeRequest.bodyFormData.filter(p => p.key || p.value),
+        bodyUrlEncoded: activeRequest.bodyUrlEncoded.filter(p => p.key || p.value)
      };
 
      try {
@@ -312,7 +326,13 @@ function App() {
            });
         }
         
-        setRequestState(parsedRequest);
+        // We do not setRequestState directly here.
+        // If they imported from modal, they might want a new tab?
+        // But ImportModal pushes directly to new RequestState currently.
+        const newTab = { ...createNewTab(), ...parsedRequest };
+        setTabs(prev => [...prev, newTab]);
+        setActiveTabId(newTab.id);
+        
         setResponseState(null);
         setActiveNavTab('Collections');
         setHistoryRefreshTrigger(prev => prev + 1);
@@ -321,23 +341,16 @@ function App() {
      }
   };
 
-  const handleNewRequest = () => {
-    setRequestState({
-      method: 'GET',
-      url: '',
-      activeTab: 'Params',
-      params: [{ key: '', value: '', description: '', active: true }],
-      headers: [{ key: '', value: '', description: '', active: true }],
-      bodyType: 'none',
-      bodyRaw: '',
-      bodyFormData: [{ key: '', value: '', description: '', active: true }],
-      bodyUrlEncoded: [{ key: '', value: '', description: '', active: true }],
-      bodyGraphQLQuery: '',
-      bodyGraphQLVariables: '',
-      authType: 'No Auth',
-      authData: {}
-    });
-    setResponseState(null);
+  const handleNewRequest = (type = 'modal') => {
+    if (type === 'modal') {
+       setShowNewFeatureModal(true);
+    } else if (type === 'http') {
+       const newTab = createNewTab();
+       setTabs(prev => [...prev, newTab]);
+       setActiveTabId(newTab.id);
+       setShowNewFeatureModal(false);
+       setResponseState(null);
+    }
   };
 
   // Render Auth Flow if not logged in
@@ -363,31 +376,87 @@ function App() {
           onNewRequest={handleNewRequest}
           onImport={() => setShowImportModal(true)}
           onLoadRequest={(req) => {
-             setRequestState({
-                method: req.method || 'GET',
-                url: req.url || '',
-                headers: (req.headers && req.headers.length > 0) ? req.headers : [{ key: '', value: '', description: '', active: true }],
-                params: (req.params && req.params.length > 0) ? req.params : [{ key: '', value: '', description: '', active: true }],
-                bodyType: req.bodyType || (req.body ? 'raw' : 'none'),
-                bodyRaw: req.bodyRaw || req.body || '',
-                bodyFormData: (req.bodyFormData && req.bodyFormData.length > 0) ? req.bodyFormData : [{ key: '', value: '', description: '', active: true }],
-                bodyUrlEncoded: (req.bodyUrlEncoded && req.bodyUrlEncoded.length > 0) ? req.bodyUrlEncoded : [{ key: '', value: '', description: '', active: true }],
-                bodyGraphQLQuery: req.bodyGraphQLQuery || '',
-                bodyGraphQLVariables: req.bodyGraphQLVariables || '',
-                authType: req.authType || 'No Auth',
-                authData: req.authData || {},
-                activeTab: 'Params'
-             });
+             const existingIdx = tabs.findIndex(t => t.url === req.url && t.method === req.method);
+             if (existingIdx !== -1) {
+                // If already open as a tab, just switch to it
+                setActiveTabId(tabs[existingIdx].id);
+             } else {
+                // Open new tab
+                const newTab = {
+                   ...createNewTab(),
+                   name: req.name || 'Saved Request',
+                   method: req.method || 'GET',
+                   url: req.url || '',
+                   headers: (req.headers && req.headers.length > 0) ? req.headers : [{ key: '', value: '', description: '', active: true }],
+                   params: (req.params && req.params.length > 0) ? req.params : [{ key: '', value: '', description: '', active: true }],
+                   bodyType: req.bodyType || (req.body ? 'raw' : 'none'),
+                   bodyRaw: req.bodyRaw || req.body || '',
+                   bodyFormData: (req.bodyFormData && req.bodyFormData.length > 0) ? req.bodyFormData : [{ key: '', value: '', description: '', active: true }],
+                   bodyUrlEncoded: (req.bodyUrlEncoded && req.bodyUrlEncoded.length > 0) ? req.bodyUrlEncoded : [{ key: '', value: '', description: '', active: true }],
+                   bodyGraphQLQuery: req.bodyGraphQLQuery || '',
+                   bodyGraphQLVariables: req.bodyGraphQLVariables || '',
+                   authType: req.authType || 'No Auth',
+                   authData: req.authData || {},
+                };
+                setTabs(prev => [...prev, newTab]);
+                setActiveTabId(newTab.id);
+             }
              setResponseState(null);
           }}
         />
         {showAccount ? (
           <AccountManager onClose={() => setShowAccount(false)} />
         ) : (
-          <main className="main-content flex-col w-full">
+          <main className="main-content flex-col w-full bg-white relative">
+            
+            {/* Top Tab Bar */}
+            <div className="flex items-center overflow-x-auto border-b border-[var(--border-color)] bg-[var(--bg-secondary)] hide-scrollbar shrink-0 h-[42px] pt-1">
+               {tabs.map((tab) => {
+                  let displayUrl = tab.name;
+                  if (tab.name === 'Untitled Request' && tab.url) {
+                      try { displayUrl = new URL(tab.url.startsWith('http') ? tab.url : `http://${tab.url}`).pathname.split('/').pop() || tab.url; } 
+                      catch(e) { displayUrl = tab.url; }
+                  }
+                  
+                  return (
+                  <div 
+                     key={tab.id}
+                     onClick={() => setActiveTabId(tab.id)}
+                     className={`flex items-center gap-2 px-3 h-full cursor-pointer min-w-[150px] max-w-[200px] border-t-2 border-r border-[var(--border-color)] rounded-tr-md transition-colors ${activeTabId === tab.id ? 'bg-[var(--bg-primary)] border-t-[#06B6D4]' : 'bg-transparent border-t-transparent hover:bg-[var(--bg-tertiary)]'}`}
+                  >
+                     <span className="text-[10px] font-bold" style={{ color: `var(--status-${tab.method.toLowerCase()})` }}>{tab.method}</span>
+                     <span className={`text-sm truncate flex-1 ${activeTabId === tab.id ? 'text-[var(--text-primary)]' : 'text-[var(--text-secondary)]'}`}>{displayUrl}</span>
+                     <button 
+                        className="text-[var(--text-muted)] hover:text-red-500 hover:bg-red-50 p-0.5 rounded transition-colors ml-1"
+                        onClick={(e) => {
+                           e.stopPropagation();
+                           const newTabs = tabs.filter(t => t.id !== tab.id);
+                           if (newTabs.length === 0) {
+                              const newTab = createNewTab();
+                              setTabs([newTab]);
+                              setActiveTabId(newTab.id);
+                           } else {
+                              setTabs(newTabs);
+                              if (activeTabId === tab.id) setActiveTabId(newTabs[newTabs.length - 1].id);
+                           }
+                        }}
+                     >
+                        <X size={12} strokeWidth={3} />
+                     </button>
+                  </div>
+               )})}
+               <button 
+                  className="p-2 ml-1 text-[var(--text-secondary)] hover:text-[#06B6D4] hover:bg-[var(--bg-tertiary)] rounded transition-colors shrink-0"
+                  onClick={() => handleNewRequest('http')}
+                  title="Open new tab"
+               >
+                  <Plus size={16} />
+               </button>
+            </div>
+
             <RequestEditor 
-              requestState={requestState} 
-              setRequestState={setRequestState} 
+              requestState={activeRequest} 
+              setRequestState={updateActiveRequest} 
               onSend={executeRequest} 
               onSave={handleSaveToCollection}
             />
@@ -398,6 +467,12 @@ function App() {
           </main>
         )}
       </div>
+      {showNewFeatureModal && (
+        <NewFeatureModal 
+           onClose={() => setShowNewFeatureModal(false)}
+           onSelect={handleNewRequest}
+        />
+      )}
       {showImportModal && (
         <ImportModal 
           onClose={() => setShowImportModal(false)}
