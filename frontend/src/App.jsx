@@ -152,6 +152,7 @@ function App() {
   const [responseState, setResponseState] = useState(null);
   const [loading, setLoading] = useState(false);
   const [historyRefreshTrigger, setHistoryRefreshTrigger] = useState(0);
+  const [useProxy, setUseProxy] = useState(true);
 
   const executeRequest = async () => {
     setLoading(true);
@@ -291,22 +292,55 @@ function App() {
         data: finalData
       };
 
-      const res = await fetch('/api/proxy', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify(proxyPayload)
-      });
+      let responseWrapper = {};
 
-      const data = await res.json();
-      setResponseState(data);
+      if (useProxy) {
+          const res = await fetch('/api/proxy', {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: JSON.stringify(proxyPayload)
+          });
+          responseWrapper = await res.json();
+      } else {
+          // Send Directly from Browser
+          const fetchOptions = {
+              method: reqClone.method,
+              headers: compiledHeaders
+          };
+          // Body payload injection
+          if (finalData && reqClone.method !== 'GET' && reqClone.method !== 'HEAD') {
+             fetchOptions.body = typeof finalData === 'string' ? finalData : JSON.stringify(finalData);
+          }
+          
+          const startTime = performance.now();
+          const res = await fetch(finalUrl, fetchOptions);
+          const endTime = performance.now();
+          
+          let responseData = await res.text();
+          try { responseData = JSON.parse(responseData); } catch(e) {}
+          
+          const headersObj = {};
+          res.headers.forEach((v, k) => headersObj[k] = v);
+
+          responseWrapper = {
+             status: res.status,
+             statusText: res.statusText,
+             data: responseData,
+             headers: headersObj,
+             time: Math.round(endTime - startTime),
+             size: new Blob([typeof responseData === 'string' ? responseData : JSON.stringify(responseData)]).size
+          };
+      }
+
+      setResponseState(responseWrapper);
 
       pm.response = {
-         json: () => data.data,
-         text: () => typeof data.data === 'string' ? data.data : JSON.stringify(data.data),
-         code: data.status
+         json: () => responseWrapper.data,
+         text: () => typeof responseWrapper.data === 'string' ? responseWrapper.data : JSON.stringify(responseWrapper.data),
+         code: responseWrapper.status
       };
 
       if (reqClone.postResponseScript) {
@@ -639,6 +673,8 @@ function App() {
                 setRequestState={updateActiveRequest} 
                 onSend={executeRequest} 
                 onSave={handleSaveToCollection}
+                useProxy={useProxy}
+                setUseProxy={setUseProxy}
               />
             </div>
             

@@ -5,7 +5,7 @@ import BodyEditor from './BodyEditor';
 import AuthEditor from './AuthEditor';
 import ScriptEditor from './ScriptEditor';
 
-function RequestEditor({ requestState, setRequestState, onSend, onSave }) {
+function RequestEditor({ requestState, setRequestState, onSend, onSave, useProxy, setUseProxy }) {
   const { method, url, activeTab, params, headers } = requestState;
 
   const handleMethodChange = (e) => setRequestState({ ...requestState, method: e.target.value });
@@ -35,12 +35,18 @@ function RequestEditor({ requestState, setRequestState, onSend, onSave }) {
           placeholder="Enter request URL" 
           className="flex-1 bg-transparent border-none text-[var(--text-primary)] px-2 outline-none font-mono text-sm"
         />
-        <button onClick={onSave} className="btn-secondary flex items-center gap-2 px-4 shadow-sm" title="Save to Collection">
-          <span>Save</span>
+        <div className="flex items-center gap-2 px-2 border-r border-[var(--border-color)]">
+          <label className="flex items-center gap-1.5 cursor-pointer" title="Route requests through the cloud backend (fixes CORS but blocks localhost) or send directly from your browser.">
+             <input type="checkbox" checked={useProxy} onChange={e => setUseProxy(e.target.checked)} className="rounded border-[var(--border-color)] text-[#06B6D4] focus:ring-0 focus:ring-offset-0 bg-transparent w-3 h-3 cursor-pointer" />
+             <span className="text-[11px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Cloud Proxy</span>
+          </label>
+        </div>
+        <button onClick={onSave} className="btn-secondary flex items-center justify-center min-w-[32px] h-8 shadow-sm p-0 rounded-md" title="Save to Collection">
+          <span className="text-xs px-3 font-semibold">Save</span>
         </button>
-        <button onClick={onSend} className="btn-primary flex items-center gap-2 px-6">
-          <span>Send</span>
-          <Play size={14} fill="currentColor" />
+        <button onClick={onSend} className="btn-primary flex items-center justify-center gap-1.5 min-w-[80px] h-8 rounded-md hover:shadow-lg transition-all" title="Execute Request">
+          <span className="text-xs font-bold tracking-wide">Send</span>
+          <Play size={13} fill="currentColor" />
         </button>
       </div>
 
