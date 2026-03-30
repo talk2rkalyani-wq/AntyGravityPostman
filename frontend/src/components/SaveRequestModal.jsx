@@ -10,8 +10,12 @@ function SaveRequestModal({ onClose, onSave, activeRequestName }) {
   const [isCreatingNew, setIsCreatingNew] = useState(false);
 
   useEffect(() => {
-     fetch('/api/collections', { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } })
-        .then(res => res.json())
+    const wsId = localStorage.getItem('activeWorkspaceId') || 'default';
+    fetch(`/api/collections?workspace=${wsId}`, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    })    .then(res => res.json())
         .then(data => setCollections(data))
         .catch(err => console.error(err));
   }, []);

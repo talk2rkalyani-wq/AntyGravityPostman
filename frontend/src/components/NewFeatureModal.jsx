@@ -1,11 +1,12 @@
 import React from 'react';
-import { ArrowLeftRight, Hexagon, Cpu, Network, Folder, Box, LayoutGrid, X } from 'lucide-react';
+import { ArrowLeftRight, Hexagon, Cpu, Network, Folder, Box, LayoutGrid, X, RadioReceiver, TerminalSquare, Server } from 'lucide-react';
 
 const tiles = [
-  { id: 'http', label: 'HTTP', icon: ArrowLeftRight, color: 'text-blue-500', desc: 'Hypertext Transfer Protocol (HTTP) is an application-layer protocol often used to build REST APIs. Test your HTTP API with an HTTP request.' },
-  { id: 'graphql', label: 'GraphQL', icon: Hexagon, color: 'text-pink-500', desc: 'Create a GraphQL request to query APIs and get exactly what you need.' },
-  { id: 'mcp', label: 'MCP', icon: Cpu, color: 'text-gray-700', desc: 'Connect to an MCP server to orchestrate local AI workflows.' },
-  { id: 'grpc', label: 'gRPC', icon: Network, color: 'text-indigo-600', desc: 'Execute a fast, language-agnostic remote procedure call.' },
+  { id: 'http', label: 'HTTP', icon: ArrowLeftRight, color: 'text-[#06B6D4]', desc: 'Basic HTTP/REST request with advanced configurations, proxy, and scripts.' },
+  { id: 'websocket', label: 'WebSocket', icon: RadioReceiver, color: 'text-purple-500', desc: 'Connect to a WebSocket server and exchange messages in real-time.' },
+  { id: 'graphql', label: 'GraphQL', icon: Box, color: 'text-[#E10098]', desc: 'Query your GraphQL endpoints with native schema parsing tools.' },
+  { id: 'mcp', label: 'MCP', icon: TerminalSquare, color: 'text-yellow-500', desc: 'Message Control Protocol debugging (Coming soon)', disabled: true },
+  { id: 'grpc', label: 'gRPC', icon: Server, color: 'text-cyan-600', desc: 'Remote Procedure Call testing (Coming soon)', disabled: true },
   { id: 'collection', label: 'Collection', icon: Folder, color: 'text-orange-500', desc: 'Group your requests together into a logical test suite.' },
   { id: 'environment', label: 'Environment', icon: Box, color: 'text-gray-500', desc: 'Manage your variables to quickly cycle through environments.' },
   { id: 'workspace', label: 'Workspace', icon: LayoutGrid, color: 'text-gray-500', desc: 'Collaborate with your team securely on isolated projects.' }
@@ -16,28 +17,28 @@ function NewFeatureModal({ onClose, onSelect }) {
 
   return (
     <div className="absolute inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
-      <div 
+      <div
         className="bg-white rounded-lg shadow-2xl w-full max-w-3xl flex flex-col overflow-hidden relative fade-in"
         onClick={(e) => e.stopPropagation()}
       >
         <button className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 transition" onClick={onClose}>
             <X size={20} />
         </button>
-        
+
         <div className="px-8 pt-8 pb-4">
             <h2 className="text-xl font-bold text-gray-800 mb-6">Create New</h2>
             <div className="grid grid-cols-4 gap-4">
                {tiles.map(tile => {
                   const Icon = tile.icon;
                   return (
-                     <div 
+                     <div
                         key={tile.id}
                         className="flex flex-col items-center justify-center p-6 border border-gray-200 rounded-lg cursor-pointer hover:border-blue-500 hover:bg-blue-50/50 hover:shadow-sm transition-all gap-3"
                         onMouseEnter={() => setHovered(tile)}
                         onClick={() => {
-                            if (tile.id === 'http' || tile.id === 'collection') {
+                            if (tile.id === 'http' || tile.id === 'collection' || tile.id === 'websocket') {
                                onSelect(tile.id);
-                            } else {
+                            } else if (!tile.disabled) {
                                alert('Feature coming soon!');
                                onClose();
                             }

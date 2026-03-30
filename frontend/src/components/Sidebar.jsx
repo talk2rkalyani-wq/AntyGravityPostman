@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Search, Folder, Clock, Settings, LayoutPanelLeft, ChevronRight, ChevronDown, Star, MoreHorizontal } from 'lucide-react';
 import Logo from './Logo';
 
-function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAccount, onNewRequest, onImport, onLoadRequest }) {
+function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAccount, onNewRequest, onImport, onLoadRequest, workspaces, activeWorkspaceId, setActiveWorkspaceId }) {
   const [history, setHistory] = useState([]);
   const [collections, setCollections] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -35,7 +35,7 @@ function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAcc
         });
     } else if (activeNavTab === 'Collections') {
       setLoading(true);
-      fetch('/api/collections', {
+      fetch(`/api/collections?workspace=${activeWorkspaceId}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -50,7 +50,7 @@ function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAcc
             setLoading(false);
         });
     }
-  }, [activeNavTab, historyRefreshTrigger]);
+  }, [activeNavTab, historyRefreshTrigger, activeWorkspaceId]);
 
   const getMethodColor = (method) => {
     return `var(--status-${(method || 'GET').toLowerCase()})`;
@@ -104,16 +104,27 @@ function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAcc
   };
 
   return (
-    <aside className="sidebar shrink-0 relative bg-[var(--bg-secondary)] border-r border-[var(--border-color)]">
-      
-      {/* New / Import Buttons */}
-      <div className="px-4 pt-4 pb-2 flex items-center gap-2 border-b border-[var(--border-color)]">
-         <button 
-           className="bg-[var(--bg-tertiary)] hover:bg-[var(--border-color)] text-[var(--text-primary)] px-3 py-1.5 rounded text-sm font-medium transition-colors border border-[transparent] hover:border-[var(--text-muted)]"
-           onClick={() => onNewRequest('modal')}
+    <aside className="w-80 border-r border-[var(--border-color)] flex flex-col h-full shrink-0 relative transition-none bg-[var(--bg-secondary)] overflow-hidden">
+      {/* Workspace Switcher */}
+      <div className="p-3 border-b border-[var(--border-color)]">
+         <select 
+            value={activeWorkspaceId || 'default'} 
+            onChange={(e) => setActiveWorkspaceId(e.target.value)}
+            className="w-full bg-[var(--bg-tertiary)] text-[var(--text-primary)] border border-[var(--border-color)] rounded-md px-3 py-2 text-sm font-semibold hover:border-blue-500/50 focus:border-blue-500 outline-none transition-colors cursor-pointer appearance-none"
          >
-            New
-         </button>
+            {workspaces?.map(w => (
+               <option key={w.id} value={w.id}>{w.name}</option>
+            ))}
+         </select>
+         <div className="pointer-events-none absolute right-6 top-[22px] flex items-center px-2 text-[var(--text-muted)]">
+            <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+         </div>
+      </div>
+
+      <div className="flex gap-1 p-3 pb-1 shrink-0">
+        <button className="btn-secondary flex-1 shadow-sm flex items-center justify-center gap-2" onClick={() => onNewRequest('modal')}>
+          <Plus size={16} /> New
+        </button>
          <button 
            className="bg-[var(--bg-tertiary)] hover:bg-[var(--border-color)] text-[var(--text-primary)] px-3 py-1.5 rounded text-sm font-medium transition-colors border border-[transparent] hover:border-[var(--text-muted)]"
            onClick={onImport}

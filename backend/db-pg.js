@@ -102,15 +102,15 @@ async function getHistory(userId) {
   return res.rows;
 }
 
-async function getCollections(userId) {
+async function getCollections(userId, workspaceId = 'default') {
   if (!pool || !userId) return [];
-  const res = await pool.query('SELECT * FROM collections WHERE user_id = $1 ORDER BY created_at DESC', [userId]);
+  const res = await pool.query('SELECT * FROM collections WHERE user_id = $1 AND workspace_id = $2 ORDER BY created_at DESC', [userId, workspaceId]);
   return res.rows;
 }
 
-async function createCollection(name, data, userId) {
+async function createCollection(name, data, userId, workspaceId = 'default') {
   const id = uuidv4();
-  await pool.query('INSERT INTO collections (id, name, data, user_id) VALUES ($1, $2, $3, $4)', [id, name, JSON.stringify(data), userId]);
+  await pool.query('INSERT INTO collections (id, name, data, user_id, workspace_id) VALUES ($1, $2, $3, $4, $5)', [id, name, JSON.stringify(data), userId, workspaceId]);
   return { id, name, data };
 }
 
@@ -119,15 +119,15 @@ async function updateCollection(id, data, userId) {
   return { id, data };
 }
 
-async function getEnvironments(userId) {
+async function getEnvironments(userId, workspaceId = 'default') {
   if (!pool || !userId) return [];
-  const res = await pool.query('SELECT * FROM environments WHERE user_id = $1 ORDER BY created_at DESC', [userId]);
+  const res = await pool.query('SELECT * FROM environments WHERE user_id = $1 AND workspace_id = $2 ORDER BY created_at DESC', [userId, workspaceId]);
   return res.rows;
 }
 
-async function createEnvironment(name, data, userId) {
+async function createEnvironment(name, data, userId, workspaceId = 'default') {
   const id = uuidv4();
-  await pool.query('INSERT INTO environments (id, name, data, user_id) VALUES ($1, $2, $3, $4)', [id, name, JSON.stringify(data), userId]);
+  await pool.query('INSERT INTO environments (id, name, data, user_id, workspace_id) VALUES ($1, $2, $3, $4, $5)', [id, name, JSON.stringify(data), userId, workspaceId]);
   return { id, name, data };
 }
 

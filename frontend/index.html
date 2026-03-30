@@ -3,11 +3,22 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#06B6D4" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>NeonAPI</title>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then(reg => console.log('ServiceWorker registered:', reg.scope))
+            .catch(err => console.log('ServiceWorker registration failed:', err));
+        });
+      }
+    </script>
   </body>
 </html>

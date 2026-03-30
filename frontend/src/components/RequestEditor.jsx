@@ -5,7 +5,7 @@ import BodyEditor from './BodyEditor';
 import AuthEditor from './AuthEditor';
 import ScriptEditor from './ScriptEditor';
 
-function RequestEditor({ requestState, setRequestState, onSend, onSave, useProxy, setUseProxy }) {
+function RequestEditor({ requestState, setRequestState, onSend, onSave, onCodeClick, useProxy, setUseProxy }) {
   const { method, url, activeTab, params, headers } = requestState;
 
   const handleMethodChange = (e) => setRequestState({ ...requestState, method: e.target.value });
@@ -41,6 +41,9 @@ function RequestEditor({ requestState, setRequestState, onSend, onSave, useProxy
              <span className="text-[11px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Cloud Proxy</span>
           </label>
         </div>
+        <button onClick={onCodeClick} className="btn-secondary flex items-center justify-center min-w-[32px] h-8 shadow-sm p-0 rounded-md bg-[var(--bg-tertiary)] hover:text-[#06B6D4] transition border border-transparent hover:border-[#06B6D4]/30" title="Generate Code Snippet">
+           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg>
+        </button>
         <button onClick={onSave} className="btn-secondary flex items-center justify-center min-w-[32px] h-8 shadow-sm p-0 rounded-md" title="Save to Collection">
           <span className="text-xs px-3 font-semibold">Save</span>
         </button>

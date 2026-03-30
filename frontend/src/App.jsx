@@ -11,6 +11,8 @@ import EnvironmentManager from './components/EnvironmentManager';
 import ImportModal from './components/ImportModal';
 import NewFeatureModal from './components/NewFeatureModal';
 import SaveRequestModal from './components/SaveRequestModal';
+import WebSocketEditor from './components/WebSocketEditor';
+import CodeSnippetModal from './components/CodeSnippetModal';
 import Login from './components/Login';
 import Signup from './components/Signup';
 import ForgotPassword from './components/ForgotPassword';
@@ -70,6 +72,7 @@ function App() {
   const [activeTabId, setActiveTabId] = useState(tabs[0].id);
   const [showNewFeatureModal, setShowNewFeatureModal] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
+  const [showCodeSnippetModal, setShowCodeSnippetModal] = useState(false);
   const [draggedTabId, setDraggedTabId] = useState(null);
   
   const [topPaneHeight, setTopPaneHeight] = useState('50%');
@@ -79,18 +82,39 @@ function App() {
   const [activeEnvId, setActiveEnvId] = useState('');
   const [isEnvManagerOpen, setIsEnvManagerOpen] = useState(false);
 
+  // Workspaces implementation
+  const [workspaces, setWorkspaces] = useState([{id: 'default', name: 'Personal Workspace'}]);
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState(localStorage.getItem('activeWorkspaceId') || 'default');
+
+  React.useEffect(() => {
+     localStorage.setItem('activeWorkspaceId', activeWorkspaceId);
+  }, [activeWorkspaceId]);
+
+  const fetchWorkspaces = async () => {
+    if (!isAuthenticated) return;
+    try {
+      const res = await fetch('/api/workspaces', { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }});
+      const data = await res.json();
+      if (data && data.length > 0) setWorkspaces(data);
+    } catch(e) {}
+  };
+
   const fetchEnvironments = async () => {
     if (!isAuthenticated) return;
     try {
-      const res = await fetch('/api/environments', { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }});
+      const res = await fetch(`/api/environments?workspace=${activeWorkspaceId}`, { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }});
       const data = await res.json();
       setEnvironments(data);
     } catch(e) {}
   };
 
   React.useEffect(() => {
-    if (isAuthenticated) fetchEnvironments();
-  }, [isAuthenticated]);
+    if (isAuthenticated) {
+       fetchWorkspaces();
+       fetchEnvironments();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, activeWorkspaceId]);
 
   const handleGoHome = () => {
     window.location.reload();
@@ -460,7 +484,7 @@ function App() {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${localStorage.getItem('token')}`
               },
-              body: JSON.stringify({ name: colName, data: dataToSave })
+              body: JSON.stringify({ name: colName, data: dataToSave, workspace_id: activeWorkspaceId })
            });
         }
         
@@ -534,6 +558,12 @@ function App() {
     } else if (type === 'collection') {
        setShowNewFeatureModal(false);
        setShowSaveModal(true);
+    } else if (type === 'websocket') {
+       const newTab = { ...createNewTab(), method: 'WS', url: 'wss://echo.websocket.org' };
+       setTabs(prev => [...prev, newTab]);
+       setActiveTabId(newTab.id);
+       setShowNewFeatureModal(false);
+       setResponseState(null);
     } else if (type === 'http') {
        const newTab = createNewTab();
        setTabs(prev => [...prev, newTab]);
@@ -579,6 +609,9 @@ function App() {
           openAccount={() => setShowAccount(true)}
           onNewRequest={handleNewRequest}
           onImport={() => setShowImportModal(true)}
+          workspaces={workspaces}
+          activeWorkspaceId={activeWorkspaceId}
+          setActiveWorkspaceId={setActiveWorkspaceId}
           onLoadRequest={(req) => {
              const existingIdx = tabs.findIndex(t => t.url === req.url && t.method === req.method);
              if (existingIdx !== -1) {
@@ -667,32 +700,45 @@ function App() {
                <EmptyWorkspace onNewRequest={handleNewRequest} />
             ) : (
                <>
-                 <div style={{ flex: `0 0 ${topPaneHeight}` }} className="flex flex-col shrink-0 relative overflow-hidden transition-none">
-                   <RequestEditor 
-                requestState={activeRequest} 
-                setRequestState={updateActiveRequest} 
-                onSend={executeRequest} 
-                onSave={handleSaveToCollection}
-                useProxy={useProxy}
-                setUseProxy={setUseProxy}
-              />
-            </div>
-            
-            {/* Drag Divider */}
-            <div 
-               className={`h-2 !min-h-[8px] bg-[var(--bg-primary)] border-y border-[var(--border-color)] cursor-row-resize flex justify-center items-center z-[100] shrink-0 ${isDraggingDivider ? 'bg-[var(--accent-cyan)] opacity-80 shadow-[0_0_10px_rgba(6,182,212,0.5)]' : 'hover:bg-[var(--bg-tertiary)]'} transition-colors`}
-               onMouseDown={startDividerDrag}
-            >
-               <div className={`w-8 h-1 rounded-full ${isDraggingDivider ? 'bg-white' : 'bg-[var(--border-color)]'} transition-colors`}></div>
-            </div>
+             {activeRequest.method === 'WS' ? (
+                <div className="flex-1 flex overflow-hidden">
+                   <WebSocketEditor 
+                     requestState={activeRequest} 
+                     setRequestState={updateActiveRequest} 
+                     onSave={handleSaveToCollection}
+                   />
+                </div>
+             ) : (
+                <>
+                   <div style={{ flex: `0 0 ${topPaneHeight}` }} className="flex flex-col shrink-0 relative overflow-hidden transition-none">
+                     <RequestEditor 
+                        requestState={activeRequest} 
+                        setRequestState={updateActiveRequest} 
+                        onSend={executeRequest} 
+                        onSave={handleSaveToCollection}
+                        onCodeClick={() => setShowCodeSnippetModal(true)}
+                        useProxy={useProxy}
+                        setUseProxy={setUseProxy}
+                     />
+                   </div>
+                   
+                   {/* Drag Divider */}
+                   <div 
+                      className={`h-2 !min-h-[8px] bg-[var(--bg-primary)] border-y border-[var(--border-color)] cursor-row-resize flex justify-center items-center z-[100] shrink-0 ${isDraggingDivider ? 'bg-[var(--accent-cyan)] opacity-80 shadow-[0_0_10px_rgba(6,182,212,0.5)]' : 'hover:bg-[var(--bg-tertiary)]'} transition-colors`}
+                      onMouseDown={startDividerDrag}
+                   >
+                      <div className={`w-8 h-1 rounded-full ${isDraggingDivider ? 'bg-white' : 'bg-[var(--border-color)]'} transition-colors`}></div>
+                   </div>
 
-            {/* Bottom Response Viewer */}
-            <div className="flex-1 flex flex-col relative overflow-hidden">
-              <ResponseViewer 
-                response={responseState} 
-                loading={loading} 
-              />
-            </div>
+                   {/* Bottom Response Viewer */}
+                   <div className="flex-1 flex flex-col relative overflow-hidden">
+                     <ResponseViewer 
+                       response={responseState} 
+                       loading={loading} 
+                     />
+                   </div>
+                </>
+             )}
                </>
             )}
           </main>
@@ -719,8 +765,13 @@ function App() {
             setResponseState(null);
           }}
           onImportAndSave={handleImportAndSave}
-          onImportCompleteCollection={handleImportCompleteCollection}
         />
+      )}
+      {showCodeSnippetModal && (
+         <CodeSnippetModal 
+            requestState={activeRequest} 
+            onClose={() => setShowCodeSnippetModal(false)} 
+         />
       )}
     </div>
   );

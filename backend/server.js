@@ -205,13 +205,14 @@ app.get('/api/history', async (req, res) => {
 });
 
 app.get('/api/collections', async (req, res) => {
-  try { res.json(await db.getCollections(req.user.id)); } catch(e) { res.status(500).json({error:e.message}); }
+  const workspaceId = req.query.workspace || 'default';
+  try { res.json(await db.getCollections(req.user.id, workspaceId)); } catch(e) { res.status(500).json({error:e.message}); }
 });
 
 app.post('/api/collections', async (req, res) => {
-  const { name, data } = req.body;
+  const { name, data, workspace_id } = req.body;
   if (!name || !data) return res.status(400).json({ error: 'Name and Data are required.' });
-  try { res.status(201).json(await db.createCollection(name, data, req.user.id)); } catch(e){ res.status(500).json({error:e.message}); }
+  try { res.status(201).json(await db.createCollection(name, data, req.user.id, workspace_id || 'default')); } catch(e){ res.status(500).json({error:e.message}); }
 });
 
 app.put('/api/collections/:id', async (req, res) => {
@@ -230,13 +231,14 @@ app.delete('/api/collections/:id', async (req, res) => {
 });
 
 app.get('/api/environments', async (req, res) => {
-  try { res.json(await db.getEnvironments(req.user.id)); } catch(e) { res.status(500).json({error:e.message}); }
+  const workspaceId = req.query.workspace || 'default';
+  try { res.json(await db.getEnvironments(req.user.id, workspaceId)); } catch(e) { res.status(500).json({error:e.message}); }
 });
 
 app.post('/api/environments', async (req, res) => {
-  const { name, data } = req.body;
+  const { name, data, workspace_id } = req.body;
   if (!name || !data) return res.status(400).json({ error: 'Name and Data are required.' });
-  try { res.status(201).json(await db.createEnvironment(name, data, req.user.id)); } catch(e){ res.status(500).json({error:e.message}); }
+  try { res.status(201).json(await db.createEnvironment(name, data, req.user.id, workspace_id || 'default')); } catch(e){ res.status(500).json({error:e.message}); }
 });
 
 app.put('/api/environments/:id', async (req, res) => {

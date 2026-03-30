@@ -100,16 +100,17 @@ function getHistory(userId) {
   return stmt.all(userId);
 }
 
-function getCollections(userId) {
-  if (!userId) return [];
-  const stmt = db.prepare('SELECT * FROM collections WHERE user_id = ? ORDER BY created_at DESC');
-  return stmt.all(userId);
+function getCollections(userId, workspaceId = 'default') {
+  if (!db || !userId) return [];
+  const stmt = db.prepare('SELECT * FROM collections WHERE user_id = ? AND workspace_id = ? ORDER BY created_at DESC');
+  const rows = stmt.all(userId, workspaceId);
+  return rows.map(r => ({ ...r, data: r.data ? JSON.parse(r.data) : null }));
 }
 
-function createCollection(name, data, userId) {
+function createCollection(name, data, userId, workspaceId = 'default') {
   const id = uuidv4();
-  const stmt = db.prepare('INSERT INTO collections (id, name, data, user_id) VALUES (?, ?, ?, ?)');
-  stmt.run(id, name, JSON.stringify(data), userId);
+  const stmt = db.prepare('INSERT INTO collections (id, name, data, user_id, workspace_id) VALUES (?, ?, ?, ?, ?)');
+  stmt.run(id, name, JSON.stringify(data), userId, workspaceId);
   return { id, name, data };
 }
 
@@ -120,16 +121,17 @@ function updateCollection(id, data, userId) {
 }
 
 // --- Environments ---
-function getEnvironments(userId) {
-  if (!userId) return [];
-  const stmt = db.prepare('SELECT * FROM environments WHERE user_id = ? ORDER BY created_at DESC');
-  return stmt.all(userId);
+function getEnvironments(userId, workspaceId = 'default') {
+  if (!db || !userId) return [];
+  const stmt = db.prepare('SELECT * FROM environments WHERE user_id = ? AND workspace_id = ? ORDER BY created_at DESC');
+  const rows = stmt.all(userId, workspaceId);
+  return rows.map(r => ({ ...r, data: r.data ? JSON.parse(r.data) : null }));
 }
 
-function createEnvironment(name, data, userId) {
+function createEnvironment(name, data, userId, workspaceId = 'default') {
   const id = uuidv4();
-  const stmt = db.prepare('INSERT INTO environments (id, name, data, user_id) VALUES (?, ?, ?, ?)');
-  stmt.run(id, name, JSON.stringify(data), userId);
+  const stmt = db.prepare('INSERT INTO environments (id, name, data, user_id, workspace_id) VALUES (?, ?, ?, ?, ?)');
+  stmt.run(id, name, JSON.stringify(data), userId, workspaceId);
   return { id, name, data };
 }
 

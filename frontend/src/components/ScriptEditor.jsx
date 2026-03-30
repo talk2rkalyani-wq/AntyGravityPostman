@@ -13,6 +13,28 @@ export default function ScriptEditor({ requestState, setRequestState }) {
 
   const value = activeTab === 'Pre-request' ? requestState.preRequestScript : requestState.postResponseScript;
 
+  const insertSnippet = (snippet) => {
+     const newVal = (value || '') + '\n' + snippet;
+     if (activeTab === 'Pre-request') {
+        setRequestState({ ...requestState, preRequestScript: newVal.trimStart() });
+     } else {
+        setRequestState({ ...requestState, postResponseScript: newVal.trimStart() });
+     }
+  };
+
+  const snippets = activeTab === 'Pre-request' ? [
+     { label: 'Get an environment variable', code: 'pm.environment.get("variable_key");' },
+     { label: 'Set an environment variable', code: 'pm.environment.set("variable_key", "variable_value");' },
+     { label: 'Clear an environment variable', code: 'pm.environment.unset("variable_key");' },
+     { label: 'Send a request', code: 'pm.sendRequest("https://postman-echo.com/get", function (err, response) {\n    console.log(response.json());\n});' }
+  ] : [
+     { label: 'Get an environment variable', code: 'pm.environment.get("variable_key");' },
+     { label: 'Set an environment variable', code: 'pm.environment.set("variable_key", "variable_value");' },
+     { label: 'Status code: Code is 200', code: 'pm.test("Status code is 200", function () {\n    pm.response.to.have.status(200);\n});' },
+     { label: 'Response body: JSON value check', code: 'pm.test("Your test name", function () {\n    var jsonData = pm.response.json();\n    pm.expect(jsonData.value).to.eql(100);\n});' },
+     { label: 'Response time is less than 200ms', code: 'pm.test("Response time is less than 200ms", function () {\n    pm.expect(pm.response.responseTime).to.be.below(200);\n});' }
+  ];
+
   return (
     <div className="flex h-full min-h-[200px] border border-[var(--border-color)] rounded-lg overflow-hidden bg-[var(--bg-primary)]">
       {/* Sidebar */}
@@ -43,6 +65,23 @@ export default function ScriptEditor({ requestState, setRequestState }) {
           placeholder={activeTab === 'Pre-request' ? `// Write JavaScript code here\npm.environment.set("variable_key", "variable_value");` : `// Validate that the response code should be 200\npm.test("Status code is 200", function () {\n    pm.response.to.have.status(200);\n});`}
           spellCheck="false"
         />
+      </div>
+
+      {/* Snippets Sidebar */}
+      <div className="w-56 bg-[var(--bg-secondary)] border-l border-[var(--border-color)] flex flex-col pt-2 shrink-0">
+         <span className="px-4 py-1 text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider border-b border-[var(--border-color)] mb-2">Snippets</span>
+         <div className="flex-1 overflow-y-auto custom-scrollbar px-2 space-y-1">
+            {snippets.map((snip, i) => (
+               <button 
+                  key={i}
+                  onClick={() => insertSnippet(snip.code)}
+                  className="w-full text-left rounded px-2 py-1.5 hover:bg-[var(--bg-tertiary)] hover:text-[#06B6D4] text-[13px] text-[var(--text-primary)] transition-colors line-clamp-2"
+                  title={snip.code}
+               >
+                  {snip.label}
+               </button>
+            ))}
+         </div>
       </div>
     </div>
   );
