@@ -809,6 +809,7 @@ function App() {
             setResponseState(null);
           }}
           onImportAndSave={handleImportAndSave}
+          onImportCompleteCollection={handleImportCompleteCollection}
         />
       )}
       {showCodeSnippetModal && (
