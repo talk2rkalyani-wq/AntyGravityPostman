@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Folder, Clock, Settings, LayoutPanelLeft, ChevronRight, ChevronDown, Star, MoreHorizontal } from 'lucide-react';
+import { Plus, Search, Folder, Clock, Settings, ChevronRight, ChevronDown, Star, MoreHorizontal } from 'lucide-react';
 import Logo from './Logo';
 
 function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAccount, onNewRequest, onImport, onLoadRequest, workspaces, activeWorkspaceId, setActiveWorkspaceId }) {
@@ -16,39 +16,28 @@ function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAcc
     return () => window.removeEventListener('click', handleClickOutside);
   }, []);
 
+  const fetchCollections = () => {
+    fetch(`/api/collections?workspace=${activeWorkspaceId}`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+    })
+    .then(res => res.json())
+    .then(data => setCollections(data))
+    .catch(err => console.error(err));
+  };
+
   useEffect(() => {
     if (activeNavTab === 'History') {
       setLoading(true);
       fetch('/api/history', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       })
         .then(res => res.json())
-        .then(data => {
-            setHistory(data);
-            setLoading(false);
-        })
-        .catch(err => {
-            console.error(err);
-            setLoading(false);
-        });
+        .then(data => { setHistory(data); setLoading(false); })
+        .catch(err => { console.error(err); setLoading(false); });
     } else if (activeNavTab === 'Collections') {
       setLoading(true);
-      fetch(`/api/collections?workspace=${activeWorkspaceId}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      })
-        .then(res => res.json())
-        .then(data => {
-            setCollections(data);
-            setLoading(false);
-        })
-        .catch(err => {
-            console.error(err);
-            setLoading(false);
-        });
+      fetchCollections();
+      setLoading(false);
     }
   }, [activeNavTab, historyRefreshTrigger, activeWorkspaceId]);
 
@@ -60,36 +49,168 @@ function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAcc
     setExpandedCollections(prev => ({...prev, [id]: !prev[id]}));
   };
 
+  const normalizeCollectionData = (data) => {
+     let parsed = data;
+     if (typeof data === 'string') {
+        try { parsed = JSON.parse(data); } catch(e) { parsed = {}; }
+     }
+     let items = parsed.items || [];
+     if (parsed.requests && parsed.requests.length > 0 && items.length === 0) {
+         items = parsed.requests.map(req => ({
+             ...req,
+             type: 'request',
+             id: req.id || window.crypto.randomUUID()
+         }));
+     }
+     return items;
+  };
+
+  const updateCollectionData = async (collectionId, modifierFn) => {
+      const col = collections.find(c => c.id === collectionId);
+      if (!col) return;
+      let data = typeof col.data === 'string' ? JSON.parse(col.data) : col.data;
+      const items = normalizeCollectionData(data);
+      
+      modifierFn(items);
+      
+      const newData = { ...data, items, requests: [] }; // Reset requests to avoid dupes since we migrated
+      
+      setCollections(prev => prev.map(c => c.id === collectionId ? { ...c, data: newData } : c));
+      
+      try {
+          await fetch(`/api/collections/${collectionId}`, {
+              method: 'PUT',
+              headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+              },
+              body: JSON.stringify({ data: newData })
+          });
+      } catch(e) {
+          console.error("Failed to update collection", e);
+      }
+  };
+
+  const handleAddFolder = (collectionId, parentFolderId = null) => {
+      const name = prompt("Enter folder name:");
+      if (!name) return;
+      
+      updateCollectionData(collectionId, (items) => {
+          const newFolder = {
+              type: 'folder',
+              id: window.crypto.randomUUID(),
+              name: name,
+              items: []
+          };
+          
+          if (!parentFolderId) {
+              items.push(newFolder);
+          } else {
+              const addRecursively = (list) => {
+                  for (let item of list) {
+                      if (item.id === parentFolderId && item.type === 'folder') {
+                          if (!item.items) item.items = [];
+                          item.items.push(newFolder);
+                          return true;
+                      }
+                      if (item.type === 'folder' && item.items) {
+                          if (addRecursively(item.items)) return true;
+                      }
+                  }
+                  return false;
+              };
+              addRecursively(items);
+          }
+      });
+      if (parentFolderId) {
+          setExpandedCollections(prev => ({...prev, [parentFolderId]: true}));
+      } else {
+          setExpandedCollections(prev => ({...prev, [collectionId]: true}));
+      }
+      setMenuParams(null);
+  };
+
+  const handleDeleteNode = (collectionId, nodeId) => {
+      if (!confirm("Are you sure you want to delete this item?")) return;
+      
+      updateCollectionData(collectionId, (items) => {
+          const deleteRecursively = (list) => {
+              for (let i = 0; i < list.length; i++) {
+                  if (list[i].id === nodeId) {
+                      list.splice(i, 1);
+                      return true;
+                  }
+                  if (list[i].type === 'folder' && list[i].items) {
+                      if (deleteRecursively(list[i].items)) return true;
+                  }
+              }
+              return false;
+          };
+          deleteRecursively(items);
+      });
+      setMenuParams(null);
+  };
+  
+  const handleRenameNode = (collectionId, nodeId, currentName) => {
+      const newName = prompt("Enter new name:", currentName);
+      if (!newName || newName === currentName) return;
+      
+      updateCollectionData(collectionId, (items) => {
+          const renameRecursively = (list) => {
+              for (let i = 0; i < list.length; i++) {
+                  if (list[i].id === nodeId) {
+                      list[i].name = newName;
+                      return true;
+                  }
+                  if (list[i].type === 'folder' && list[i].items) {
+                      if (renameRecursively(list[i].items)) return true;
+                  }
+              }
+              return false;
+          };
+          renameRecursively(items);
+      });
+      setMenuParams(null);
+  };
+
   const handleExportCollection = (collection) => {
      setMenuParams(null);
-     let data = {};
-     try {
-       data = typeof collection.data === 'string' ? JSON.parse(collection.data) : collection.data;
-     } catch(e) { data = {}; }
+     let data = typeof collection.data === 'string' ? JSON.parse(collection.data) : collection.data;
+     const items = normalizeCollectionData(data);
      
+     const processItems = (itemList) => {
+        return itemList.map(node => {
+           if (node.type === 'folder') {
+              return {
+                 name: node.name,
+                 item: processItems(node.items || [])
+              };
+           } else {
+              return {
+                 name: node.name || node.url,
+                 request: {
+                    method: node.method,
+                    header: (node.headers || []).filter(h => h.active && h.key).map(h => ({ key: h.key, value: h.value })),
+                    url: { raw: node.url, host: node.url.split('/') },
+                    body: node.bodyType !== 'none' ? {
+                       mode: node.bodyType === 'raw' ? 'raw' : node.bodyType === 'GraphQL' ? 'graphql' : node.bodyType === 'form-data' ? 'formdata' : 'urlencoded',
+                       raw: node.bodyRaw,
+                       graphql: node.bodyType === 'GraphQL' ? { query: node.bodyGraphQLQuery, variables: node.bodyGraphQLVariables } : undefined,
+                       formdata: node.bodyType === 'form-data' ? node.bodyFormData : undefined,
+                       urlencoded: node.bodyType === 'x-www-form-urlencoded' ? node.bodyUrlEncoded : undefined
+                    } : undefined
+                 }
+              };
+           }
+        });
+     };
+
      const exportPayload = {
         info: {
            name: collection.name,
            schema: "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
         },
-        item: (data.requests || []).map(req => ({
-           name: req.name || req.url,
-           request: {
-              method: req.method,
-              header: (req.headers || []).filter(h => h.active && h.key).map(h => ({ key: h.key, value: h.value })),
-              url: {
-                 raw: req.url,
-                 host: req.url.split('/')
-              },
-              body: req.bodyType !== 'none' ? {
-                 mode: req.bodyType === 'raw' ? 'raw' : req.bodyType === 'GraphQL' ? 'graphql' : req.bodyType === 'form-data' ? 'formdata' : 'urlencoded',
-                 raw: req.bodyRaw,
-                 graphql: req.bodyType === 'GraphQL' ? { query: req.bodyGraphQLQuery, variables: req.bodyGraphQLVariables } : undefined,
-                 formdata: req.bodyType === 'form-data' ? req.bodyFormData : undefined,
-                 urlencoded: req.bodyType === 'x-www-form-urlencoded' ? req.bodyUrlEncoded : undefined
-              } : undefined
-           }
-        }))
+        item: processItems(items)
      };
      
      const blob = new Blob([JSON.stringify(exportPayload, null, 2)], { type: 'application/json' });
@@ -103,9 +224,68 @@ function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAcc
      URL.revokeObjectURL(url);
   };
 
+  const RenderNode = ({ node, collectionId, depth }) => {
+     const isExpanded = !!expandedCollections[node.id];
+     if (node.type === 'folder') {
+         return (
+             <div className="flex flex-col">
+                <div 
+                  className="flex items-center gap-2 p-1.5 hover:bg-[var(--bg-tertiary)] rounded cursor-pointer text-[var(--text-primary)] transition-colors group"
+                  style={{ paddingLeft: `${8 + depth * 12}px` }}
+                  onClick={() => toggleCollection(node.id)}
+                >
+                   {isExpanded ? <ChevronDown size={14} className="text-[var(--text-muted)]"/> : <ChevronRight size={14} className="text-[var(--text-muted)]"/>}
+                   <Folder size={14} className="text-[var(--text-muted)] opacity-50" />
+                   <span className="text-sm font-medium flex-1 truncate">{node.name}</span>
+                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
+                      <button 
+                        className="p-1 hover:text-[var(--text-primary)] hover:bg-[var(--bg-primary)] rounded"
+                        onClick={(e) => {
+                           e.stopPropagation();
+                           setMenuParams({ x: e.clientX, y: e.clientY, isFolderMenu: true, node, collectionId });
+                        }}
+                      >
+                        <MoreHorizontal size={14} />
+                      </button>
+                   </div>
+                </div>
+                {isExpanded && (
+                   <div className="flex flex-col">
+                      {(node.items || []).length === 0 && (
+                         <div className="text-xs text-[var(--text-muted)] p-1 opacity-50" style={{ paddingLeft: `${28 + depth * 12}px` }}>Empty folder</div>
+                      )}
+                      {(node.items || []).map(child => <RenderNode key={child.id || Math.random()} node={child} collectionId={collectionId} depth={depth + 1} />)}
+                   </div>
+                )}
+             </div>
+         );
+     } else {
+         return (
+             <div 
+               className="flex items-center gap-2 p-1.5 hover:bg-[var(--bg-tertiary)] rounded cursor-pointer text-sm group"
+               style={{ paddingLeft: `${24 + depth * 12}px` }}
+               onClick={() => onLoadRequest && onLoadRequest(node)}
+             >
+                <span style={{ color: getMethodColor(node.method) }} className="font-bold text-[10px] w-10 shrink-0 text-center">{node.method}</span>
+                <span className="truncate text-[var(--text-secondary)] flex-1">{node.name || node.url}</span>
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                   <button 
+                      className="p-1 text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-primary)] rounded"
+                      onClick={(e) => {
+                         e.stopPropagation();
+                         setMenuParams({ x: e.clientX, y: e.clientY, isRequestMenu: true, req: node, collectionId });
+                      }}
+                   >
+                      <MoreHorizontal size={14} />
+                   </button>
+                </div>
+             </div>
+         );
+     }
+  };
+
   return (
     <aside className="w-80 border-r border-[var(--border-color)] flex flex-col h-full shrink-0 relative transition-none bg-[var(--bg-secondary)] overflow-hidden">
-      {/* Workspace Switcher */}
       <div className="p-3 border-b border-[var(--border-color)]">
          <select 
             value={activeWorkspaceId || 'default'} 
@@ -133,19 +313,11 @@ function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAcc
          </button>
       </div>
 
-
-
       <div className="tab-nav mb-2">
-        <div 
-          className={`tab-item flex items-center gap-2 ${activeNavTab === 'Collections' ? 'active' : ''}`}
-          onClick={() => setActiveNavTab('Collections')}
-        >
+        <div className={`tab-item flex items-center gap-2 ${activeNavTab === 'Collections' ? 'active' : ''}`} onClick={() => setActiveNavTab('Collections')}>
           <Folder size={14} /> Collections
         </div>
-        <div 
-          className={`tab-item flex items-center gap-2 ${activeNavTab === 'History' ? 'active' : ''}`}
-          onClick={() => setActiveNavTab('History')}
-        >
+        <div className={`tab-item flex items-center gap-2 ${activeNavTab === 'History' ? 'active' : ''}`} onClick={() => setActiveNavTab('History')}>
           <Clock size={14} /> History
         </div>
       </div>
@@ -170,7 +342,7 @@ function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAcc
 
       <div className="flex-1 overflow-y-auto px-2 mt-2 custom-scrollbar">
         {activeNavTab === 'Collections' ? (
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1 pb-10">
              {loading ? (
                 <div className="p-3 text-sm text-[var(--text-muted)] text-center">Loading...</div>
              ) : collections.length === 0 ? (
@@ -178,29 +350,28 @@ function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAcc
                   No collections yet. Click + to create.
                 </div>
              ) : (
-                collections.map((item) => {
-                   const isExpanded = !!expandedCollections[item.id];
-                   const data = typeof item.data === 'string' ? JSON.parse(item.data) : item.data;
-                   const requests = data.requests || [];
+                collections.map((collection) => {
+                   const isExpanded = !!expandedCollections[collection.id];
+                   const items = normalizeCollectionData(collection.data);
                    
                    return (
-                     <div key={item.id} className="flex flex-col">
+                     <div key={collection.id} className="flex flex-col">
                         <div 
                           className="flex items-center gap-2 p-2 hover:bg-[var(--bg-tertiary)] rounded-md cursor-pointer text-[var(--text-primary)] transition-colors group"
-                          onClick={() => toggleCollection(item.id)}
+                          onClick={() => toggleCollection(collection.id)}
                         >
                           {isExpanded ? <ChevronDown size={14} className="text-[var(--text-muted)]"/> : <ChevronRight size={14} className="text-[var(--text-muted)]"/>}
                           <Folder size={14} className="text-[var(--accent-cyan)] fill-[var(--accent-cyan)] opacity-20" />
-                          <span className="text-sm font-medium flex-1">{item.name}</span>
+                          <span className="text-sm font-medium flex-1 truncate">{collection.name}</span>
                           
                           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
-                             <button className="p-1 hover:text-[var(--accent-cyan)] hover:bg-[var(--bg-primary)] rounded" title="Add request"><Plus size={14} /></button>
+                             <button className="p-1 hover:text-[var(--accent-cyan)] hover:bg-[var(--bg-primary)] rounded" title="Add request" onClick={(e) => { e.stopPropagation(); onNewRequest('http'); }}><Plus size={14} /></button>
                              <button className="p-1 hover:text-yellow-400 hover:bg-[var(--bg-primary)] rounded" title="Mark as favorite"><Star size={14} /></button>
                              <button 
                                className="p-1 hover:text-[var(--text-primary)] hover:bg-[var(--bg-primary)] rounded"
                                onClick={(e) => {
                                   e.stopPropagation();
-                                  setMenuParams({ x: e.clientX, y: e.clientY, isCollectionMenu: true, collection: item });
+                                  setMenuParams({ x: e.clientX, y: e.clientY, isCollectionMenu: true, collection });
                                }}
                              >
                                <MoreHorizontal size={14} />
@@ -209,31 +380,11 @@ function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAcc
                         </div>
                         
                         {isExpanded && (
-                          <div className="ml-6 flex flex-col gap-1 mt-1 border-l border-[var(--border-color)] pl-2">
-                            {requests.length === 0 ? (
-                               <div className="text-xs text-[var(--text-muted)] p-1">Empty collection</div>
+                          <div className="flex flex-col gap-0.5 mt-1 border-l ml-3 border-[var(--border-color)]">
+                            {items.length === 0 ? (
+                               <div className="text-xs text-[var(--text-muted)] p-1 ml-4 opacity-50">Empty collection</div>
                             ) : (
-                               requests.map((req, idx) => (
-                               <div 
-                                 key={idx} 
-                                 className="flex items-center gap-2 p-1.5 hover:bg-[var(--bg-tertiary)] rounded cursor-pointer text-sm group"
-                                 onClick={() => onLoadRequest && onLoadRequest(req)}
-                               >
-                                    <span style={{ color: getMethodColor(req.method) }} className="font-bold text-[10px] w-10 shrink-0">{req.method}</span>
-                                    <span className="truncate text-[var(--text-secondary)] flex-1">{req.name || req.url}</span>
-                                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button 
-                                           className="p-1 text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-primary)] rounded"
-                                           onClick={(e) => {
-                                              e.stopPropagation();
-                                              setMenuParams({ x: e.clientX, y: e.clientY, isCollectionMenu: false, req, collectionId: item.id, idx });
-                                           }}
-                                        >
-                                           <MoreHorizontal size={14} />
-                                        </button>
-                                     </div>
-                                 </div>
-                               ))
+                               items.map(child => <RenderNode key={child.id || Math.random()} node={child} collectionId={collection.id} depth={0} />)
                             )}
                           </div>
                         )}
@@ -243,7 +394,7 @@ function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAcc
              )}
           </div>
         ) : (
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1 pb-10">
             {loading ? (
               <div className="p-3 text-sm text-[var(--text-muted)] text-center">Loading...</div>
             ) : history.length === 0 ? (
@@ -258,7 +409,7 @@ function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAcc
                   onClick={() => onLoadRequest && onLoadRequest(item)}
                 >
                    <div className="flex items-center gap-2 text-sm">
-                      <span style={{ color: getMethodColor(item.method) }} className="font-bold text-[10px] w-10">{item.method}</span>
+                      <span style={{ color: getMethodColor(item.method) }} className="font-bold text-[10px] w-10 text-center">{item.method}</span>
                       <span className="truncate text-[var(--text-primary)] flex-1">{item.url}</span>
                    </div>
                    <div className="flex justify-between text-xs text-[var(--text-muted)] pl-12">
@@ -272,13 +423,9 @@ function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAcc
         )}
       </div>
 
-      <div className="px-4 pt-4 border-t border-[var(--border-color)] flex-between text-[var(--text-muted)] mt-auto mb-2">
+      <div className="px-4 pt-4 border-t border-[var(--border-color)] flex-between text-[var(--text-muted)] mt-auto mb-2 shrink-0">
          <span className="text-xs">Global Env</span>
-         <div 
-           className="cursor-pointer hover:text-[var(--text-primary)] p-1 rounded hover:bg-[var(--bg-tertiary)] transition-colors"
-           onClick={openAccount}
-           title="Manage Account"
-         >
+         <div className="cursor-pointer hover:text-[var(--text-primary)] p-1 rounded hover:bg-[var(--bg-tertiary)] transition-colors" onClick={openAccount} title="Manage Account">
             <Settings size={14} />
          </div>
       </div>
@@ -291,94 +438,52 @@ function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAcc
          >
             {menuParams.isCollectionMenu ? (
                <>
-                 <button className="flex items-center justify-start w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] transition-colors text-left" onClick={() => setMenuParams(null)}>
+                 <button className="flex items-center justify-start w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] transition-colors text-left" onClick={() => { onNewRequest('http'); setMenuParams(null); }}>
                     Add request
                  </button>
-                 <button className="flex items-center justify-start w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] transition-colors text-left" onClick={() => setMenuParams(null)}>
+                 <button className="flex items-center justify-start w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] transition-colors text-left" onClick={() => handleAddFolder(menuParams.collection.id)}>
                     Add folder
                  </button>
                  <div className="h-[1px] bg-[var(--border-color)] my-1"></div>
-                 <button className="flex items-center justify-start w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] transition-colors text-left" onClick={() => setMenuParams(null)}>
-                    Run
-                 </button>
-                 <div className="h-[1px] bg-[var(--border-color)] my-1"></div>
-                 <button className="flex items-center justify-start w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] transition-colors text-left" onClick={() => setMenuParams(null)}>
-                    Share
-                 </button>
-                 <button className="flex items-center justify-start w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] transition-colors text-left" onClick={() => setMenuParams(null)}>
-                    Copy link
-                 </button>
-                 <div className="h-[1px] bg-[var(--border-color)] my-1"></div>
-                 <button className="flex items-center justify-start w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] transition-colors text-left" onClick={() => setMenuParams(null)}>
-                    Ask AI
-                 </button>
-                 <button className="flex items-center justify-start w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] transition-colors text-left" onClick={() => setMenuParams(null)}>
-                    Move
-                 </button>
-                 <div className="h-[1px] bg-[var(--border-color)] my-1"></div>
-                 <button className="flex items-center justify-between w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] transition-colors text-left" onClick={() => setMenuParams(null)}>
-                    Fork
-                    <span className="text-[10px] text-[var(--text-muted)] opacity-60 font-mono tracking-widest leading-none">⌥⌘F</span>
-                 </button>
-                 <div className="h-[1px] bg-[var(--border-color)] my-1"></div>
-                 <button className="flex items-center justify-between w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] transition-colors text-left" onClick={() => setMenuParams(null)}>
-                    Rename
-                    <span className="text-[10px] text-[var(--text-muted)] opacity-60 font-mono tracking-widest leading-none">⌘E</span>
-                 </button>
-                 <button className="flex items-center justify-between w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] transition-colors text-left" onClick={() => setMenuParams(null)}>
-                    Duplicate
-                    <span className="text-[10px] text-[var(--text-muted)] opacity-60 font-mono tracking-widest leading-none">⌘D</span>
-                 </button>
                  <button className="flex items-center justify-between w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] transition-colors text-left" onClick={() => handleExportCollection(menuParams.collection)}>
                     Export
                  </button>
-                 <button className="flex items-center justify-between w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] transition-colors text-left group" onClick={() => setMenuParams(null)}>
-                    Sort
-                    <ChevronRight size={14} className="text-[var(--text-muted)] group-hover:text-[var(--text-primary)]" />
-                 </button>
+                 <div className="h-[1px] bg-[var(--border-color)] my-1"></div>
                  <button className="flex items-center justify-between w-full px-4 py-1.5 hover:bg-red-50 text-red-600 transition-colors text-left group" onClick={() => { setDeleteConfirmParams({ id: menuParams.collection.id }); setMenuParams(null); }}>
                     Delete
                     <span className="text-[10px] opacity-60 font-mono tracking-widest leading-none border border-red-200 bg-red-100 px-1 rounded flex items-center justify-center">⌫</span>
                  </button>
+               </>
+            ) : menuParams.isFolderMenu ? (
+               <>
+                 <button className="flex items-center justify-start w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] transition-colors text-left" onClick={() => { onNewRequest('http'); setMenuParams(null); }}>
+                    Add request
+                 </button>
+                 <button className="flex items-center justify-start w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] transition-colors text-left" onClick={() => handleAddFolder(menuParams.collectionId, menuParams.node.id)}>
+                    Add folder
+                 </button>
                  <div className="h-[1px] bg-[var(--border-color)] my-1"></div>
-                 <button className="flex items-center justify-between w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] transition-colors text-left group" onClick={() => setMenuParams(null)}>
-                    More
-                    <ChevronRight size={14} className="text-[var(--text-muted)] group-hover:text-[var(--text-primary)]" />
+                 <button className="flex items-center justify-between w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] transition-colors text-left group" onClick={() => handleRenameNode(menuParams.collectionId, menuParams.node.id, menuParams.node.name)}>
+                    Rename
+                 </button>
+                 <button className="flex items-center justify-between w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] text-red-500 transition-colors text-left" onClick={() => handleDeleteNode(menuParams.collectionId, menuParams.node.id)}>
+                    Delete
+                    <span className="text-[10px] text-[var(--status-delete)] opacity-50 font-mono tracking-widest leading-none bg-red-500/10 px-1 rounded">⌫</span>
                  </button>
                </>
             ) : (
                <>
-                 <button className="flex items-center justify-between w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] text-[var(--text-primary)] transition-colors text-left" onClick={() => setMenuParams(null)}>
-                    Add example
+                 <button className="flex items-center justify-between w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] text-[var(--text-primary)] transition-colors text-left" onClick={() => { navigator.clipboard.writeText(menuParams.req.url); setMenuParams(null); }}>
+                    Copy link
                  </button>
-            <div className="h-[1px] bg-[var(--border-color)] my-1"></div>
-            <button className="flex items-center justify-between w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] text-[var(--text-primary)] transition-colors text-left" onClick={() => setMenuParams(null)}>
-               Share
-            </button>
-            <button className="flex items-center justify-between w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] text-[var(--text-primary)] transition-colors text-left" onClick={() => { navigator.clipboard.writeText(menuParams.req.url); setMenuParams(null); }}>
-               Copy link
-            </button>
-            <div className="h-[1px] bg-[var(--border-color)] my-1"></div>
-            <button className="flex items-center justify-between w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] text-[var(--text-primary)] transition-colors text-left" onClick={() => setMenuParams(null)}>
-               Ask AI
-            </button>
-            <div className="h-[1px] bg-[var(--border-color)] my-1"></div>
-            <button className="flex items-center justify-between w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] text-[var(--text-primary)] transition-colors text-left group" onClick={() => setMenuParams(null)}>
-               Rename
-               <span className="text-[10px] text-[var(--text-muted)] opacity-50 font-mono tracking-widest leading-none">⌘E</span>
-            </button>
-            <button className="flex items-center justify-between w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] text-[var(--text-primary)] transition-colors text-left" onClick={() => setMenuParams(null)}>
-               Copy
-               <span className="text-[10px] text-[var(--text-muted)] opacity-50 font-mono tracking-widest leading-none">⌘C</span>
-            </button>
-            <button className="flex items-center justify-between w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] text-[var(--text-primary)] transition-colors text-left" onClick={() => setMenuParams(null)}>
-               Duplicate
-               <span className="text-[10px] text-[var(--text-muted)] opacity-50 font-mono tracking-widest leading-none">⌘D</span>
-            </button>
-            <button className="flex items-center justify-between w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] text-red-500 transition-colors text-left" onClick={() => setMenuParams(null)}>
-               Delete
-               <span className="text-[10px] text-[var(--status-delete)] opacity-50 font-mono tracking-widest leading-none bg-red-500/10 px-1 rounded">⌫</span>
-            </button>
+                 <div className="h-[1px] bg-[var(--border-color)] my-1"></div>
+                 <button className="flex items-center justify-between w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] text-[var(--text-primary)] transition-colors text-left group" onClick={() => handleRenameNode(menuParams.collectionId, menuParams.req.id, menuParams.req.name)}>
+                    Rename
+                 </button>
+                 <button className="flex items-center justify-between w-full px-4 py-1.5 hover:bg-[var(--bg-tertiary)] text-red-500 transition-colors text-left" onClick={() => handleDeleteNode(menuParams.collectionId, menuParams.req.id)}>
+                    Delete
+                    <span className="text-[10px] text-[var(--status-delete)] opacity-50 font-mono tracking-widest leading-none bg-red-500/10 px-1 rounded">⌫</span>
+                 </button>
                </>
             )}
          </div>
@@ -389,7 +494,7 @@ function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAcc
             <div className="bg-[var(--bg-primary)] rounded-lg shadow-2xl w-full max-w-sm flex flex-col overflow-hidden relative border border-[var(--border-color)] fade-in">
                <div className="p-6">
                   <h3 className="text-[15px] font-semibold text-[var(--text-primary)] mb-2 mt-2 leading-relaxed">
-                     Are you sure want to delete this collection
+                     Are you sure want to delete this collection?
                   </h3>
                </div>
                <div className="flex items-center justify-end px-6 py-4 bg-[var(--bg-secondary)] border-t border-[var(--border-color)] gap-3 mt-4">

@@ -400,10 +400,49 @@ function App() {
     }
   };
 
-   const handleSaveToCollectionModal = async (reqName, colName) => {
+   const insertIntoFolder = (items, folderId, dataToInsert) => {
+      for (let item of items) {
+          if (item.id === folderId && item.type === 'folder') {
+              if (!item.items) item.items = [];
+              if (Array.isArray(dataToInsert)) {
+                 item.items.push(...dataToInsert);
+              } else {
+                 item.items.push(dataToInsert);
+              }
+              return true;
+          }
+          if (item.type === 'folder' && item.items) {
+              if (insertIntoFolder(item.items, folderId, dataToInsert)) return true;
+          }
+      }
+      return false;
+   };
+
+   const normalizeCollectionData = (data) => {
+      let parsed = data;
+      if (typeof parsed === 'string') {
+         try { parsed = JSON.parse(parsed); } catch(e) { parsed = {}; }
+      }
+      let items = parsed.items || [];
+      if (parsed.requests && parsed.requests.length > 0 && items.length === 0) {
+          items = parsed.requests.map(req => ({
+              ...req,
+              type: 'request',
+              id: req.id || window.crypto.randomUUID()
+          }));
+      }
+      return items;
+   };
+
+   const handleSaveToCollectionModal = async (payload) => {
+     const { requestName, collectionName, targetCollection, targetFolderId } = payload;
+     const colName = collectionName || targetCollection?.name;
+
      const dataToSave = {
         ...activeRequest,
-        name: reqName,
+        type: 'request',
+        id: activeRequest.id || window.crypto.randomUUID(),
+        name: requestName,
         params: activeRequest.params.filter(p => p.key || p.value),
         headers: activeRequest.headers.filter(h => h.key || h.value),
         bodyFormData: activeRequest.bodyFormData.filter(p => p.key || p.value),
@@ -411,16 +450,20 @@ function App() {
      };
 
      try {
-        const colRes = await fetch('/api/collections', {
+        const colRes = await fetch(`/api/collections?workspace=${activeWorkspaceId}`, {
           headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
         });
         const collections = await colRes.json();
-        const existing = collections.find(c => c.name === colName);
+        const existing = targetCollection || collections.find(c => c.name === colName);
 
         if (existing) {
-           let existingData = typeof existing.data === 'string' ? JSON.parse(existing.data) : existing.data;
-           if (!existingData.requests) existingData.requests = [];
-           existingData.requests.push(dataToSave);
+           let items = normalizeCollectionData(existing.data);
+           
+           if (targetFolderId) {
+               insertIntoFolder(items, targetFolderId, dataToSave);
+           } else {
+               items.push(dataToSave);
+           }
            
            await fetch(`/api/collections/${existing.id}`, {
               method: 'PUT',
@@ -428,17 +471,17 @@ function App() {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${localStorage.getItem('token')}`
               },
-              body: JSON.stringify({ data: existingData })
+              body: JSON.stringify({ data: { items, requests: [] } })
            });
         } else {
-           const newData = { requests: [dataToSave] };
+           const newData = { items: [dataToSave] };
            await fetch('/api/collections', {
               method: 'POST',
               headers: { 
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${localStorage.getItem('token')}`
               },
-              body: JSON.stringify({ name: colName, data: newData })
+              body: JSON.stringify({ name: colName, data: newData, workspace_id: activeWorkspaceId })
            });
         }
         
@@ -456,18 +499,21 @@ function App() {
 
    const handleImportCompleteCollection = async (colName, requestsArray) => {
      try {
-        const colRes = await fetch('/api/collections', {
+        const mappedRequests = requestsArray.map(req => ({
+             ...req,
+             type: 'request',
+             id: window.crypto.randomUUID()
+        }));
+
+        const colRes = await fetch(`/api/collections?workspace=${activeWorkspaceId}`, {
           headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
         });
         const collections = await colRes.json();
         const existing = collections.find(c => c.name === colName);
 
-        const dataToSave = { requests: requestsArray };
-
         if (existing) {
-           const existingData = typeof existing.data === 'string' ? JSON.parse(existing.data) : existing.data;
-           if (!existingData.requests) existingData.requests = [];
-           existingData.requests.push(...requestsArray);
+           let items = normalizeCollectionData(existing.data);
+           items.push(...mappedRequests);
            
            await fetch(`/api/collections/${existing.id}`, {
               method: 'PUT',
@@ -475,7 +521,7 @@ function App() {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${localStorage.getItem('token')}`
               },
-              body: JSON.stringify({ data: existingData })
+              body: JSON.stringify({ data: { items, requests: [] } })
            });
         } else {
            await fetch('/api/collections', {
@@ -484,7 +530,7 @@ function App() {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${localStorage.getItem('token')}`
               },
-              body: JSON.stringify({ name: colName, data: dataToSave, workspace_id: activeWorkspaceId })
+              body: JSON.stringify({ name: colName, data: { items: mappedRequests }, workspace_id: activeWorkspaceId })
            });
         }
         
@@ -498,6 +544,8 @@ function App() {
   const handleImportAndSave = async (parsedRequest, reqName, colName) => {
      const dataToSave = {
         ...parsedRequest,
+        type: 'request',
+        id: window.crypto.randomUUID(),
         name: reqName,
         params: parsedRequest.params.filter(p => p.key || p.value),
         headers: parsedRequest.headers.filter(h => h.key || h.value),
@@ -506,16 +554,15 @@ function App() {
      };
 
      try {
-        const colRes = await fetch('/api/collections', {
+        const colRes = await fetch(`/api/collections?workspace=${activeWorkspaceId}`, {
           headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
         });
         const collections = await colRes.json();
         const existing = collections.find(c => c.name === colName);
 
         if (existing) {
-           const existingData = typeof existing.data === 'string' ? JSON.parse(existing.data) : existing.data;
-           if (!existingData.requests) existingData.requests = [];
-           existingData.requests.push(dataToSave);
+           let items = normalizeCollectionData(existing.data);
+           items.push(dataToSave);
            
            await fetch(`/api/collections/${existing.id}`, {
               method: 'PUT',
@@ -523,23 +570,20 @@ function App() {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${localStorage.getItem('token')}`
               },
-              body: JSON.stringify({ data: existingData })
+              body: JSON.stringify({ data: { items, requests: [] } })
            });
         } else {
-           const newData = { requests: [dataToSave] };
+           const newData = { items: [dataToSave] };
            await fetch('/api/collections', {
               method: 'POST',
               headers: { 
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${localStorage.getItem('token')}`
               },
-              body: JSON.stringify({ name: colName, data: newData })
+              body: JSON.stringify({ name: colName, data: newData, workspace_id: activeWorkspaceId })
            });
         }
         
-        // We do not setRequestState directly here.
-        // If they imported from modal, they might want a new tab?
-        // But ImportModal pushes directly to new RequestState currently.
         const newTab = { ...createNewTab(), ...parsedRequest };
         setTabs(prev => [...prev, newTab]);
         setActiveTabId(newTab.id);
