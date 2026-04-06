@@ -304,14 +304,13 @@ function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAcc
                <Clock size={20} strokeWidth={activeNavTab === 'History' ? 2 : 1.5} />
                <span className="text-[9px] mt-1 hidden sm:block truncate w-full text-center px-1">History</span>
             </button>
-            <button className={`w-full flex flex-col items-center justify-center py-2 relative text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors ${activeNavTab === 'Flows' ? 'text-[var(--text-primary)]' : ''}`} onClick={() => { setActiveNavTab('Flows'); setIsSidebarOpen(true); }} title="Flows">
-               {activeNavTab === 'Flows' && <div className="absolute left-0 w-[2px] h-full bg-[#06B6D4] rounded-r-md"></div>}
-               <Network size={20} strokeWidth={activeNavTab === 'Flows' ? 2 : 1.5} />
+            <button className="w-full flex flex-col items-center justify-center py-2 relative text-[var(--text-secondary)] opacity-50 cursor-not-allowed transition-colors" onClick={() => {}} title="Feature coming soon">
+               <Network size={20} strokeWidth={1.5} />
                <span className="text-[9px] mt-1 hidden sm:block truncate w-full text-center px-1">Flows</span>
             </button>
          </div>
          <div className="flex flex-col items-center w-full gap-1">
-            <button className={`w-full flex flex-col items-center justify-center py-2 relative text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors ${activeNavTab === 'Configure Workplace' ? 'text-[var(--text-primary)]' : ''}`} onClick={() => { setActiveNavTab('Configure Workplace'); setIsSidebarOpen(true); }} title="Configure Workplace">
+            <button className={`w-full flex flex-col items-center justify-center py-3 relative text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors border-t border-[var(--border-color)] ${activeNavTab === 'Configure Workplace' ? 'text-[var(--text-primary)] bg-[var(--bg-tertiary)]' : ''}`} onClick={() => { setActiveNavTab('Configure Workplace'); setIsSidebarOpen(true); }} title="Configure workspace sidebar">
                {activeNavTab === 'Configure Workplace' && <div className="absolute left-0 w-[2px] h-full bg-[#06B6D4] rounded-r-md"></div>}
                <Grid size={20} strokeWidth={activeNavTab === 'Configure Workplace' ? 2 : 1.5} />
             </button>
