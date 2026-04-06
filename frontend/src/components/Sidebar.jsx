@@ -287,8 +287,8 @@ function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAcc
 
   return (
     <div className="flex h-full shrink-0">
-      <div className="w-20 border-r border-[var(--border-color)] flex flex-col justify-between py-2 shrink-0 bg-[var(--bg-secondary)] z-10 hidden sm:flex">
-         <div className="flex flex-col items-center w-full gap-1">
+      <div className="w-20 border-r border-[var(--border-color)] flex flex-col py-2 shrink-0 bg-[var(--bg-secondary)] z-10 hidden sm:flex">
+         <div className="flex flex-col items-center w-full gap-1 h-full">
             <button className={`group w-full flex flex-col items-center justify-center py-2 relative text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors ${activeNavTab === 'Collections' ? 'text-[var(--text-primary)]' : ''}`} onClick={() => { setActiveNavTab('Collections'); setIsSidebarOpen(true); }}>
                {activeNavTab === 'Collections' && <div className="absolute left-0 w-[2px] h-full bg-[#06B6D4] rounded-r-md"></div>}
                <Archive size={20} strokeWidth={activeNavTab === 'Collections' ? 2 : 1.5} />
@@ -312,14 +312,14 @@ function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAcc
                <span className="text-[9px] mt-1 hidden sm:block truncate w-full text-center px-1">Flows</span>
                <div className="absolute left-full ml-2 px-2.5 py-1.5 bg-[var(--bg-primary)] border border-[var(--border-color)] shadow-xl text-[var(--text-primary)] text-xs font-medium rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity duration-150 z-[9999] top-1/2 -translate-y-1/2">Feature coming soon</div>
             </button>
-         </div>
-         <div className="flex flex-col items-center w-full gap-1">
-            <button className={`group w-full flex flex-col items-center justify-center py-3 relative text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors border-t border-[var(--border-color)] ${activeNavTab === 'Configure Workplace' ? 'text-[var(--text-primary)] bg-[var(--bg-tertiary)]' : ''}`} onClick={() => { setActiveNavTab('Configure Workplace'); setIsSidebarOpen(true); }}>
+
+            <button className={`group w-full flex flex-col items-center justify-center py-3 relative text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors border-t border-[var(--border-color)] mt-2 ${activeNavTab === 'Configure Workplace' ? 'text-[var(--text-primary)] bg-[var(--bg-tertiary)]' : ''}`} onClick={() => { setActiveNavTab('Configure Workplace'); setIsSidebarOpen(true); }}>
                {activeNavTab === 'Configure Workplace' && <div className="absolute left-0 w-[2px] h-full bg-[#06B6D4] rounded-r-md"></div>}
                <Grid size={20} strokeWidth={activeNavTab === 'Configure Workplace' ? 2 : 1.5} />
                <div className="absolute left-full ml-2 px-2.5 py-1.5 bg-[var(--bg-primary)] border border-[var(--border-color)] shadow-xl text-[var(--text-primary)] text-xs font-medium rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity duration-150 z-[9999] top-1/2 -translate-y-1/2">Configure workspace sidebar</div>
             </button>
-            <button className="group w-full flex items-center justify-center py-3 relative text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors border-t border-[var(--border-color)] mt-1" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
+
+            <button className="group w-full flex items-center justify-center py-3 relative text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors border-t border-[var(--border-color)] mt-auto" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
                {isSidebarOpen ? <PanelLeftClose size={18} strokeWidth={1.5} /> : <PanelLeftOpen size={18} strokeWidth={1.5} />}
                <div className="absolute left-full ml-2 px-2.5 py-1.5 bg-[var(--bg-primary)] border border-[var(--border-color)] shadow-xl text-[var(--text-primary)] text-xs font-medium rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity duration-150 z-[9999] top-1/2 -translate-y-1/2">{isSidebarOpen ? "Collapse Sidebar" : "Expand Sidebar"}</div>
             </button>
