@@ -287,27 +287,27 @@ function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAcc
 
   return (
     <div className="flex h-full shrink-0">
-      <div className="w-14 border-r border-[#ececec] flex flex-col justify-between py-2 shrink-0 bg-[var(--bg-secondary)] z-10 hidden sm:flex">
+      <div className="w-20 border-r border-[var(--border-color)] flex flex-col justify-between py-2 shrink-0 bg-[var(--bg-secondary)] z-10 hidden sm:flex">
          <div className="flex flex-col items-center w-full gap-1">
             <button className={`w-full flex flex-col items-center justify-center py-2 relative text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors ${activeNavTab === 'Collections' ? 'text-[var(--text-primary)]' : ''}`} onClick={() => { setActiveNavTab('Collections'); setIsSidebarOpen(true); }} title="Collections">
                {activeNavTab === 'Collections' && <div className="absolute left-0 w-[2px] h-full bg-[#06B6D4] rounded-r-md"></div>}
                <Archive size={20} strokeWidth={activeNavTab === 'Collections' ? 2 : 1.5} />
-               <span className="text-[9px] mt-1 hidden xl:block">Collections</span>
+               <span className="text-[9px] mt-1 hidden sm:block truncate w-full text-center px-1">Collections</span>
             </button>
             <button className={`w-full flex flex-col items-center justify-center py-2 relative text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors ${activeNavTab === 'Environments' ? 'text-[var(--text-primary)]' : ''}`} onClick={() => { setActiveNavTab('Environments'); setIsSidebarOpen(true); }} title="Environments">
                {activeNavTab === 'Environments' && <div className="absolute left-0 w-[2px] h-full bg-[#06B6D4] rounded-r-md"></div>}
                <LayoutGrid size={20} strokeWidth={activeNavTab === 'Environments' ? 2 : 1.5} />
-               <span className="text-[9px] mt-1 hidden xl:block">Environments</span>
+               <span className="text-[9px] mt-1 hidden sm:block truncate w-full text-center px-1">Environments</span>
             </button>
             <button className={`w-full flex flex-col items-center justify-center py-2 relative text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors ${activeNavTab === 'History' ? 'text-[var(--text-primary)]' : ''}`} onClick={() => { setActiveNavTab('History'); setIsSidebarOpen(true); }} title="History">
                {activeNavTab === 'History' && <div className="absolute left-0 w-[2px] h-full bg-[#06B6D4] rounded-r-md"></div>}
                <Clock size={20} strokeWidth={activeNavTab === 'History' ? 2 : 1.5} />
-               <span className="text-[9px] mt-1 hidden xl:block">History</span>
+               <span className="text-[9px] mt-1 hidden sm:block truncate w-full text-center px-1">History</span>
             </button>
             <button className={`w-full flex flex-col items-center justify-center py-2 relative text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors ${activeNavTab === 'Flows' ? 'text-[var(--text-primary)]' : ''}`} onClick={() => { setActiveNavTab('Flows'); setIsSidebarOpen(true); }} title="Flows">
                {activeNavTab === 'Flows' && <div className="absolute left-0 w-[2px] h-full bg-[#06B6D4] rounded-r-md"></div>}
                <Network size={20} strokeWidth={activeNavTab === 'Flows' ? 2 : 1.5} />
-               <span className="text-[9px] mt-1 hidden xl:block">Flows</span>
+               <span className="text-[9px] mt-1 hidden sm:block truncate w-full text-center px-1">Flows</span>
             </button>
          </div>
          <div className="flex flex-col items-center w-full gap-1">
