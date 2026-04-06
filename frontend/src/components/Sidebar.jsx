@@ -313,10 +313,16 @@ function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAcc
                <div className="absolute left-full ml-2 px-2.5 py-1.5 bg-[var(--bg-primary)] border border-[var(--border-color)] shadow-xl text-[var(--text-primary)] text-xs font-medium rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity duration-150 z-[9999] top-1/2 -translate-y-1/2">Feature coming soon</div>
             </button>
 
-            <button className={`group w-full flex flex-col items-center justify-center py-3 relative text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors border-t border-[var(--border-color)] mt-2 ${activeNavTab === 'Configure Workplace' ? 'text-[var(--text-primary)] bg-[var(--bg-tertiary)]' : ''}`} onClick={() => { setActiveNavTab('Configure Workplace'); setIsSidebarOpen(true); }}>
-               {activeNavTab === 'Configure Workplace' && <div className="absolute left-0 w-[2px] h-full bg-[#06B6D4] rounded-r-md"></div>}
-               <Grid size={20} strokeWidth={activeNavTab === 'Configure Workplace' ? 2 : 1.5} />
-               <div className="absolute left-full ml-2 px-2.5 py-1.5 bg-[var(--bg-primary)] border border-[var(--border-color)] shadow-xl text-[var(--text-primary)] text-xs font-medium rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity duration-150 z-[9999] top-1/2 -translate-y-1/2">Configure workspace sidebar</div>
+            <div className="w-10 border-t border-[var(--border-color)] my-2"></div>
+            <button className={`group w-14 h-12 flex items-center justify-center relative transition-colors rounded bg-[#f3f4f6] dark:bg-[var(--bg-tertiary)] text-[var(--text-primary)]`} onClick={() => { setActiveNavTab('Configure Workplace'); setIsSidebarOpen(true); }}>
+               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="7" height="7" rx="1" />
+                  <rect x="14" y="3" width="7" height="7" rx="1" />
+                  <rect x="3" y="14" width="7" height="7" rx="1" />
+                  <path d="M14 17.5h7" />
+                  <path d="M17.5 14v7" />
+               </svg>
+               <div className="absolute left-full ml-3 px-3 py-2 bg-[var(--bg-primary)] border border-[var(--border-color)] shadow-xl text-[var(--text-primary)] text-xs font-medium rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity duration-150 z-[9999] top-1/2 -translate-y-1/2 shadow-sm">Configure workspace sidebar</div>
             </button>
 
             <button className="group w-full flex items-center justify-center py-3 relative text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors border-t border-[var(--border-color)] mt-auto" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
