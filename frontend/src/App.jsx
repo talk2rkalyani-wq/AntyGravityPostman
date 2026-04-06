@@ -499,12 +499,22 @@ function App() {
 
    const handleImportCompleteCollection = async (colName, requestsArray) => {
      try {
-        const mappedRequests = requestsArray.map(req => ({
-             ...req,
-             type: 'request',
-             id: window.crypto.randomUUID()
-        }));
-
+        const mapRecursive = (arr) => arr.map(item => {
+           if (item.type === 'folder' || item.items) {
+              return { 
+                 ...item, 
+                 type: 'folder',
+                 id: item.id || (window.crypto.randomUUID ? window.crypto.randomUUID() : (Math.random().toString(36).substring(2) + Date.now().toString(36))), 
+                 items: mapRecursive(item.items || []) 
+              };
+           }
+           return { 
+              ...item, 
+              type: 'request', 
+              id: item.id || (window.crypto.randomUUID ? window.crypto.randomUUID() : (Math.random().toString(36).substring(2) + Date.now().toString(36))) 
+           };
+        });
+        const mappedRequests = mapRecursive(requestsArray);
         const colRes = await fetch(`/api/collections?workspace=${activeWorkspaceId}`, {
           headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
         });

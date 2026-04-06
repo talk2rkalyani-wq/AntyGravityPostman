@@ -122,15 +122,15 @@ function ImportModal({ onClose, onImportRequest, onImportAndSave, onImportComple
     onClose();
   };
 
-  const extractRequestsFromPostman = (itemArray, parentPath = '') => {
+  const extractRequestsFromPostman = (itemArray) => {
       if (!Array.isArray(itemArray)) return [];
-      let requests = [];
+      let items = [];
       for (const item of itemArray) {
          if (item.request) {
             let method = typeof item.request === 'string' ? "GET" : (item.request.method || 'GET');
             let urlObj = typeof item.request === 'string' ? item.request : item.request.url;
             let url = typeof urlObj === 'string' ? urlObj : (urlObj?.raw || '');
-            let parsedName = parentPath ? `${parentPath} / ${item.name}` : (item.name || url);
+            let parsedName = item.name || url;
             
             let headers = [{ key: '', value: '', description: '', active: true }];
             if (item.request.header && Array.isArray(item.request.header)) {
@@ -188,17 +188,23 @@ function ImportModal({ onClose, onImportRequest, onImportAndSave, onImportComple
                });
             }
 
-            requests.push({
+            items.push({
+               type: 'request',
+               id: window.crypto.randomUUID ? window.crypto.randomUUID() : (Math.random().toString(36).substring(2) + Date.now().toString(36)),
                name: parsedName,
                method, url, headers, bodyType, bodyRaw, bodyFormData, bodyUrlEncoded, params,
                bodyGraphQLQuery: '', bodyGraphQLVariables: '', preRequestScript, postResponseScript, authType: 'No Auth', authData: {}, activeTab: 'Params'
             });
          } else if (item.item) {
-            const newPath = parentPath ? `${parentPath} / ${item.name}` : item.name;
-            requests = requests.concat(extractRequestsFromPostman(item.item, newPath));
+            items.push({
+               type: 'folder',
+               id: window.crypto.randomUUID ? window.crypto.randomUUID() : (Math.random().toString(36).substring(2) + Date.now().toString(36)),
+               name: item.name || 'New Folder',
+               items: extractRequestsFromPostman(item.item)
+            });
          }
       }
-      return requests;
+      return items;
    };
 
   const processFiles = async (fileList) => {
