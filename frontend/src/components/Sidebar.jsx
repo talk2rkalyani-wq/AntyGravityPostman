@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Folder, Clock, Settings, ChevronRight, ChevronDown, Star, MoreHorizontal } from 'lucide-react';
+import { Plus, Search, Folder, Clock, Settings, ChevronRight, ChevronDown, Star, MoreHorizontal, Archive, LayoutGrid, Network, Grid, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import Logo from './Logo';
 
 function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAccount, onNewRequest, onImport, onLoadRequest, workspaces, activeWorkspaceId, setActiveWorkspaceId }) {
@@ -9,6 +9,7 @@ function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAcc
   const [expandedCollections, setExpandedCollections] = useState({});
   const [menuParams, setMenuParams] = useState(null);
   const [deleteConfirmParams, setDeleteConfirmParams] = useState(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   useEffect(() => {
     const handleClickOutside = () => setMenuParams(null);
@@ -285,7 +286,42 @@ function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAcc
   };
 
   return (
-    <aside className="w-80 border-r border-[var(--border-color)] flex flex-col h-full shrink-0 relative transition-none bg-[var(--bg-secondary)] overflow-hidden">
+    <div className="flex h-full shrink-0">
+      <div className="w-14 border-r border-[#ececec] flex flex-col justify-between py-2 shrink-0 bg-[var(--bg-secondary)] z-10 hidden sm:flex">
+         <div className="flex flex-col items-center w-full gap-1">
+            <button className={`w-full flex flex-col items-center justify-center py-2 relative text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors ${activeNavTab === 'Collections' ? 'text-[var(--text-primary)]' : ''}`} onClick={() => { setActiveNavTab('Collections'); setIsSidebarOpen(true); }} title="Collections">
+               {activeNavTab === 'Collections' && <div className="absolute left-0 w-[2px] h-full bg-[#06B6D4] rounded-r-md"></div>}
+               <Archive size={20} strokeWidth={activeNavTab === 'Collections' ? 2 : 1.5} />
+               <span className="text-[9px] mt-1 hidden xl:block">Collections</span>
+            </button>
+            <button className={`w-full flex flex-col items-center justify-center py-2 relative text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors ${activeNavTab === 'Environments' ? 'text-[var(--text-primary)]' : ''}`} onClick={() => { setActiveNavTab('Environments'); setIsSidebarOpen(true); }} title="Environments">
+               {activeNavTab === 'Environments' && <div className="absolute left-0 w-[2px] h-full bg-[#06B6D4] rounded-r-md"></div>}
+               <LayoutGrid size={20} strokeWidth={activeNavTab === 'Environments' ? 2 : 1.5} />
+               <span className="text-[9px] mt-1 hidden xl:block">Environments</span>
+            </button>
+            <button className={`w-full flex flex-col items-center justify-center py-2 relative text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors ${activeNavTab === 'History' ? 'text-[var(--text-primary)]' : ''}`} onClick={() => { setActiveNavTab('History'); setIsSidebarOpen(true); }} title="History">
+               {activeNavTab === 'History' && <div className="absolute left-0 w-[2px] h-full bg-[#06B6D4] rounded-r-md"></div>}
+               <Clock size={20} strokeWidth={activeNavTab === 'History' ? 2 : 1.5} />
+               <span className="text-[9px] mt-1 hidden xl:block">History</span>
+            </button>
+            <button className={`w-full flex flex-col items-center justify-center py-2 relative text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors ${activeNavTab === 'Flows' ? 'text-[var(--text-primary)]' : ''}`} onClick={() => { setActiveNavTab('Flows'); setIsSidebarOpen(true); }} title="Flows">
+               {activeNavTab === 'Flows' && <div className="absolute left-0 w-[2px] h-full bg-[#06B6D4] rounded-r-md"></div>}
+               <Network size={20} strokeWidth={activeNavTab === 'Flows' ? 2 : 1.5} />
+               <span className="text-[9px] mt-1 hidden xl:block">Flows</span>
+            </button>
+         </div>
+         <div className="flex flex-col items-center w-full gap-1">
+            <button className={`w-full flex flex-col items-center justify-center py-2 relative text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors ${activeNavTab === 'Configure Workplace' ? 'text-[var(--text-primary)]' : ''}`} onClick={() => { setActiveNavTab('Configure Workplace'); setIsSidebarOpen(true); }} title="Configure Workplace">
+               {activeNavTab === 'Configure Workplace' && <div className="absolute left-0 w-[2px] h-full bg-[#06B6D4] rounded-r-md"></div>}
+               <Grid size={20} strokeWidth={activeNavTab === 'Configure Workplace' ? 2 : 1.5} />
+            </button>
+            <button className="w-full flex items-center justify-center py-3 text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors border-t border-[var(--border-color)] mt-1" onClick={() => setIsSidebarOpen(!isSidebarOpen)} title={isSidebarOpen ? "Collapse Sidebar" : "Expand Sidebar"}>
+               {isSidebarOpen ? <PanelLeftClose size={18} strokeWidth={1.5} /> : <PanelLeftOpen size={18} strokeWidth={1.5} />}
+            </button>
+         </div>
+      </div>
+      {isSidebarOpen && (
+        <aside className="w-72 border-r border-[var(--border-color)] flex flex-col h-full shrink-0 relative transition-none bg-[var(--bg-secondary)] overflow-hidden">
       <div className="p-3 border-b border-[var(--border-color)]">
          <select 
             value={activeWorkspaceId || 'default'} 
@@ -313,14 +349,6 @@ function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAcc
          </button>
       </div>
 
-      <div className="tab-nav mb-2">
-        <div className={`tab-item flex items-center gap-2 ${activeNavTab === 'Collections' ? 'active' : ''}`} onClick={() => setActiveNavTab('Collections')}>
-          <Folder size={14} /> Collections
-        </div>
-        <div className={`tab-item flex items-center gap-2 ${activeNavTab === 'History' ? 'active' : ''}`} onClick={() => setActiveNavTab('History')}>
-          <Clock size={14} /> History
-        </div>
-      </div>
 
       <div className="px-4 py-2 mt-2 border-b border-transparent">
         <div className="flex items-center gap-2">
@@ -393,7 +421,7 @@ function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAcc
                 })
              )}
           </div>
-        ) : (
+        ) : activeNavTab === 'History' ? (
           <div className="flex flex-col gap-1 pb-10">
             {loading ? (
               <div className="p-3 text-sm text-[var(--text-muted)] text-center">Loading...</div>
@@ -419,6 +447,11 @@ function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAcc
                 </div>
               ))
             )}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center h-full p-4 text-center opacity-50 mt-10">
+             <span className="text-lg font-medium mb-2">{activeNavTab}</span>
+             <span className="text-xs max-w-[200px]">This feature is under development and will be available soon.</span>
           </div>
         )}
       </div>
@@ -525,6 +558,8 @@ function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAcc
          </div>
       )}
     </aside>
+   )}
+   </div>
   );
 }
 
