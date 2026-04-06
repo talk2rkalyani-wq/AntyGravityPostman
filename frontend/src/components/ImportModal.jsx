@@ -123,18 +123,23 @@ function ImportModal({ onClose, onImportRequest, onImportAndSave, onImportComple
   };
 
   const extractRequestsFromPostman = (itemArray, parentPath = '') => {
+      if (!Array.isArray(itemArray)) return [];
       let requests = [];
       for (const item of itemArray) {
          if (item.request) {
-            let method = item.request.method || 'GET';
-            let url = item.request.url?.raw || item.request.url || '';
-            let parsedName = parentPath ? `${parentPath} / ${item.name}` : item.name;
+            let method = typeof item.request === 'string' ? "GET" : (item.request.method || 'GET');
+            let urlObj = typeof item.request === 'string' ? item.request : item.request.url;
+            let url = typeof urlObj === 'string' ? urlObj : (urlObj?.raw || '');
+            let parsedName = parentPath ? `${parentPath} / ${item.name}` : (item.name || url);
             
             let headers = [{ key: '', value: '', description: '', active: true }];
-            if (item.request.header) {
+            if (item.request.header && Array.isArray(item.request.header)) {
                headers = item.request.header.map(h => ({
-                  key: h.key, value: h.value, description: h.description || '', active: true
+                  key: h.key || '', value: h.value || '', description: h.description || '', active: true
                }));
+            } else if (typeof item.request.header === 'string') {
+               const parts = item.request.header.split(':');
+               if (parts.length >= 2) headers = [{ key: parts[0].trim(), value: parts.slice(1).join(':').trim(), description: '', active: true }];
             }
             if (headers.length === 0) headers.push({ key: '', value: '', description: '', active: true });
 
@@ -147,15 +152,15 @@ function ImportModal({ onClose, onImportRequest, onImportAndSave, onImportComple
                if (item.request.body.mode === 'raw') {
                   bodyType = 'raw';
                   bodyRaw = item.request.body.raw || '';
-               } else if (item.request.body.mode === 'formdata') {
+               } else if (item.request.body.mode === 'formdata' && Array.isArray(item.request.body.formdata)) {
                   bodyType = 'form-data';
                   bodyFormData = item.request.body.formdata.map(f => ({
-                     key: f.key, value: f.value, description: f.description || '', active: true
+                     key: f.key || '', value: f.value || '', description: f.description || '', active: true
                   }));
-               } else if (item.request.body.mode === 'urlencoded') {
+               } else if (item.request.body.mode === 'urlencoded' && Array.isArray(item.request.body.urlencoded)) {
                   bodyType = 'x-www-form-urlencoded';
                   bodyUrlEncoded = item.request.body.urlencoded.map(f => ({
-                     key: f.key, value: f.value, description: f.description || '', active: true
+                     key: f.key || '', value: f.value || '', description: f.description || '', active: true
                   }));
                }
             }
@@ -163,9 +168,10 @@ function ImportModal({ onClose, onImportRequest, onImportAndSave, onImportComple
             if (bodyUrlEncoded.length === 0) bodyUrlEncoded.push({ key: '', value: '', description: '', active: true });
 
             let params = [{ key: '', value: '', description: '', active: true }];
-            if (item.request.url?.query) {
-               params = item.request.url.query.map(q => ({
-                  key: q.key, value: q.value, description: q.description || '', active: true
+            let urlQuery = typeof urlObj === 'string' ? null : urlObj?.query;
+            if (urlQuery && Array.isArray(urlQuery)) {
+               params = urlQuery.map(q => ({
+                  key: q.key || '', value: q.value || '', description: q.description || '', active: true
                }));
             }
             if (params.length === 0) params.push({ key: '', value: '', description: '', active: true });
