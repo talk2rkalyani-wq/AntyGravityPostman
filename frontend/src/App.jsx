@@ -92,8 +92,8 @@ function App() {
     localStorage.removeItem('user');
     setIsAuthenticated(false);
     setAuthMode('login');
-    handleNewRequest();
-    setResponseState(null);
+    setTabs([createNewTab()]);
+    setActiveTabId(null);
   };
   
   const createNewTab = () => ({
@@ -113,7 +113,9 @@ function App() {
     preRequestScript: '',
     postResponseScript: '',
     authType: 'No Auth',
-    authData: {}
+    authData: {},
+    response: null,
+    loading: false
   });
 
   const [tabs, setTabs] = useState([createNewTab()]);
@@ -243,14 +245,16 @@ function App() {
      setDraggedTabId(null);
   };
 
-  const [responseState, setResponseState] = useState(null);
-  const [loading, setLoading] = useState(false);
   const [historyRefreshTrigger, setHistoryRefreshTrigger] = useState(0);
   const [useProxy, setUseProxy] = useState(true);
 
+  const setTabState = (tabId, newState) => {
+    setTabs(prev => prev.map(t => t.id === tabId ? { ...t, ...newState } : t));
+  };
+
   const executeRequest = async () => {
-    setLoading(true);
-    setResponseState(null);
+    const currentTabId = activeRequest.id;
+    setTabState(currentTabId, { loading: true, response: null });
 
     try {
       const replaceEnvVars = (str, envData) => {
@@ -429,7 +433,7 @@ function App() {
           };
       }
 
-      setResponseState(responseWrapper);
+      setTabState(currentTabId, { response: responseWrapper });
 
       pm.response = {
          json: () => responseWrapper.data,
@@ -458,15 +462,17 @@ function App() {
       setHistoryRefreshTrigger(prev => prev + 1);
 
     } catch (error) {
-       setResponseState({
-          status: 0,
-          statusText: 'Network Error',
-          error: error.message || 'Failed to connect to proxy server',
-          time: 0,
-          size: 0
+       setTabState(currentTabId, {
+          response: {
+             status: 0,
+             statusText: 'Network Error',
+             error: error.message || 'Failed to connect to proxy server',
+             time: 0,
+             size: 0
+          }
        });
     } finally {
-      setLoading(false);
+      setTabState(currentTabId, { loading: false });
     }
   };
 
@@ -668,7 +674,6 @@ function App() {
         setTabs(prev => [...prev, newTab]);
         setActiveTabId(newTab.id);
         
-        setResponseState(null);
         setActiveNavTab('Collections');
         setHistoryRefreshTrigger(prev => prev + 1);
      } catch(e) {
@@ -687,13 +692,11 @@ function App() {
        setTabs(prev => [...prev, newTab]);
        setActiveTabId(newTab.id);
        setShowNewFeatureModal(false);
-       setResponseState(null);
     } else if (type === 'http') {
        const newTab = createNewTab();
        setTabs(prev => [...prev, newTab]);
        setActiveTabId(newTab.id);
        setShowNewFeatureModal(false);
-       setResponseState(null);
     }
   };
 
@@ -766,7 +769,6 @@ function App() {
                 setTabs(prev => [...prev, newTab]);
                 setActiveTabId(newTab.id);
              }
-             setResponseState(null);
           }}
         />
         {showAccount ? (
@@ -882,8 +884,8 @@ function App() {
                    {/* Bottom Response Viewer */}
                    <div className="flex-1 flex flex-col relative overflow-hidden">
                      <ResponseViewer 
-                       response={responseState} 
-                       loading={loading} 
+                       response={activeRequest?.response} 
+                       loading={activeRequest?.loading} 
                      />
                    </div>
                 </>
@@ -910,8 +912,7 @@ function App() {
         <ImportModal 
           onClose={() => setShowImportModal(false)}
           onImportRequest={(parsedState) => {
-            setRequestState(parsedState);
-            setResponseState(null);
+            updateActiveRequest({ ...parsedState, response: null, loading: false });
           }}
           onImportAndSave={handleImportAndSave}
           onImportCompleteCollection={handleImportCompleteCollection}
