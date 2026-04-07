@@ -85,6 +85,22 @@ async function initDb() {
     await pool.query('ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS user_id TEXT REFERENCES users(id) ON DELETE CASCADE;');
   } catch(e) { /* ignore pg versions that lack IF NOT EXISTS or other conflicts */ }
 
+  try {
+    await pool.query("ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS type TEXT DEFAULT 'personal';");
+    await pool.query("ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS owner_id TEXT REFERENCES users(id);");
+  } catch(e) {}
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS workspace_members (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT REFERENCES workspaces(id) ON DELETE CASCADE,
+      user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+      role TEXT,
+      joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(workspace_id, user_id)
+    );
+  `);
+
   const wpRes = await pool.query('SELECT count(*) as cnt FROM workspaces');
   if (parseInt(wpRes.rows[0].cnt) === 0) {
     await pool.query("INSERT INTO workspaces (id, name) VALUES ('default', 'My Workspace') ON CONFLICT DO NOTHING");
@@ -114,8 +130,13 @@ async function createCollection(name, data, userId, workspaceId = 'default') {
   return { id, name, data };
 }
 
-async function updateCollection(id, data, userId) {
-  await pool.query('UPDATE collections SET data = $1 WHERE id = $2 AND user_id = $3', [JSON.stringify(data), id, userId]);
+async function getCollection(id) {
+  const res = await pool.query('SELECT * FROM collections WHERE id = $1', [id]);
+  return res.rows[0];
+}
+
+async function updateCollection(id, data) {
+  await pool.query('UPDATE collections SET data = $1 WHERE id = $2', [JSON.stringify(data), id]);
   return { id, data };
 }
 
@@ -125,19 +146,24 @@ async function getEnvironments(userId, workspaceId = 'default') {
   return res.rows;
 }
 
+async function getEnvironment(id) {
+  const res = await pool.query('SELECT * FROM environments WHERE id = $1', [id]);
+  return res.rows[0];
+}
+
 async function createEnvironment(name, data, userId, workspaceId = 'default') {
   const id = uuidv4();
   await pool.query('INSERT INTO environments (id, name, data, user_id, workspace_id) VALUES ($1, $2, $3, $4, $5)', [id, name, JSON.stringify(data), userId, workspaceId]);
   return { id, name, data };
 }
 
-async function updateEnvironment(id, name, data, userId) {
-  await pool.query('UPDATE environments SET name = $1, data = $2 WHERE id = $3 AND user_id = $4', [name, JSON.stringify(data), id, userId]);
+async function updateEnvironment(id, name, data) {
+  await pool.query('UPDATE environments SET name = $1, data = $2 WHERE id = $3', [name, JSON.stringify(data), id]);
   return { id, name, data };
 }
 
-async function deleteEnvironment(id, userId) {
-  await pool.query('DELETE FROM environments WHERE id = $1 AND user_id = $2', [id, userId]);
+async function deleteEnvironment(id) {
+  await pool.query('DELETE FROM environments WHERE id = $1', [id]);
   return true;
 }
 
@@ -165,14 +191,56 @@ async function removeMember(id) {
 
 async function getWorkspaces(userId) {
   if (!pool || !userId) return [];
-  const res = await pool.query('SELECT * FROM workspaces WHERE user_id = $1 OR id = $2 ORDER BY created_at ASC', [userId, 'default']);
+  const res = await pool.query(`
+    SELECT w.* FROM workspaces w
+    LEFT JOIN workspace_members wm ON w.id = wm.workspace_id
+    WHERE w.user_id = $1 OR w.id = $2 OR wm.user_id = $3
+    GROUP BY w.id
+    ORDER BY w.created_at ASC
+  `, [userId, 'default', userId]);
   return res.rows;
 }
 
-async function addWorkspace(name, userId) {
+async function addWorkspace(name, userId, type = 'personal') {
   const id = uuidv4();
-  await pool.query('INSERT INTO workspaces (id, name, user_id) VALUES ($1, $2, $3)', [id, name, userId]);
-  return { id, name };
+  await pool.query('INSERT INTO workspaces (id, name, user_id, type, owner_id) VALUES ($1, $2, $3, $4, $5)', [id, name, userId, type, userId]);
+  if (type === 'team') {
+     await addWorkspaceMember(id, userId, 'admin');
+  }
+  return { id, name, type, owner_id: userId };
+}
+
+async function addWorkspaceMember(workspaceId, userId, role) {
+  const id = uuidv4();
+  await pool.query(`
+    INSERT INTO workspace_members (id, workspace_id, user_id, role) 
+    VALUES ($1, $2, $3, $4)
+    ON CONFLICT (workspace_id, user_id) DO UPDATE SET role = EXCLUDED.role
+  `, [id, workspaceId, userId, role]);
+  return { id, workspaceId, userId, role };
+}
+
+async function getWorkspaceMembers(workspaceId) {
+  const res = await pool.query(`
+    SELECT wm.*, u.email, u.username as name
+    FROM workspace_members wm
+    JOIN users u ON wm.user_id = u.id
+    WHERE wm.workspace_id = $1
+  `, [workspaceId]);
+  return res.rows;
+}
+
+async function updateWorkspaceMemberRole(workspaceId, userId, role) {
+  await pool.query('UPDATE workspace_members SET role = $1 WHERE workspace_id = $2 AND user_id = $3', [role, workspaceId, userId]);
+}
+
+async function removeWorkspaceMember(workspaceId, userId) {
+  await pool.query('DELETE FROM workspace_members WHERE workspace_id = $1 AND user_id = $2', [workspaceId, userId]);
+}
+
+async function getWorkspaceMember(workspaceId, userId) {
+  const res = await pool.query('SELECT * FROM workspace_members WHERE workspace_id = $1 AND user_id = $2', [workspaceId, userId]);
+  return res.rows[0];
 }
 
 async function updateWorkspace(id, name, userId) {
@@ -266,18 +334,19 @@ async function updatePasswordByEmail(email, passwordHash) {
   }
 }
 
-async function deleteCollection(id, userId) {
+async function deleteCollection(id) {
   await pool.query(`
     DELETE FROM collections
-    WHERE id = $1 AND user_id = $2
-  `, [id, userId]);
+    WHERE id = $1
+  `, [id]);
 }
 
 module.exports = {
-  initDb, saveHistory, getHistory, getCollections, createCollection, updateCollection, deleteCollection,
-  getEnvironments, createEnvironment, updateEnvironment, deleteEnvironment,
+  initDb, saveHistory, getHistory, getCollections, getCollection, createCollection, updateCollection, deleteCollection,
+  getEnvironments, getEnvironment, createEnvironment, updateEnvironment, deleteEnvironment,
   getMembers, addMember, updateMemberRole, removeMember, getWorkspaces, addWorkspace,
   updateWorkspace, deleteWorkspace, createUser, getUserByEmailOrUsername, getUserById,
   createSession, getUserBySession, deleteSession, saveOtp, verifyOtp, verifyResetToken,
-  updatePasswordByEmail
+  updatePasswordByEmail, addWorkspaceMember, getWorkspaceMembers, updateWorkspaceMemberRole, 
+  removeWorkspaceMember, getWorkspaceMember
 };

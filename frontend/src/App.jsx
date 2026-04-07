@@ -16,7 +16,9 @@ import CodeSnippetModal from './components/CodeSnippetModal';
 import Login from './components/Login';
 import Signup from './components/Signup';
 import ForgotPassword from './components/ForgotPassword';
+import WorkspaceSettings from './components/WorkspaceSettings';
 import './index.css';
+import { io } from 'socket.io-client';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('token'));
@@ -24,6 +26,52 @@ function App() {
   const [activeNavTab, setActiveNavTab] = useState('Collections');
   const [showAccount, setShowAccount] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+
+  const [sidebarConfig, setSidebarConfig] = useState(() => {
+    const saved = localStorage.getItem('sidebarConfig');
+    if (saved) {
+      try { return JSON.parse(saved); } catch(e) {}
+    }
+    return {
+      Collections: true,
+      Environments: true,
+      History: true,
+      APIs: false,
+      'Mock servers': false,
+      Specs: false,
+      Monitors: false,
+      Flows: true,
+      Files: true,
+      Insights: false
+    };
+  });
+
+  const [themeConfig, setThemeConfig] = useState(() => {
+    const saved = localStorage.getItem('themeConfig');
+    if (saved) {
+      try { return JSON.parse(saved); } catch(e) {}
+    }
+    return {
+      accentColor: '#06B6D4',
+      themeColor: 'dark'
+    };
+  });
+
+  React.useEffect(() => {
+    localStorage.setItem('sidebarConfig', JSON.stringify(sidebarConfig));
+  }, [sidebarConfig]);
+
+  React.useEffect(() => {
+    localStorage.setItem('themeConfig', JSON.stringify(themeConfig));
+    // Apply accent color
+    document.documentElement.style.setProperty('--accent-cyan', themeConfig.accentColor);
+    // Dark/light mode
+    if (themeConfig.themeColor === 'light') {
+       document.documentElement.classList.add('light');
+    } else {
+       document.documentElement.classList.remove('light');
+    }
+  }, [themeConfig]);
 
   const handleLoginSuccess = (token, user) => {
     localStorage.setItem('token', token);
@@ -85,10 +133,32 @@ function App() {
   // Workspaces implementation
   const [workspaces, setWorkspaces] = useState([{id: 'default', name: 'Personal Workspace'}]);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState(localStorage.getItem('activeWorkspaceId') || 'default');
+  const [socket, setSocket] = useState(null);
 
   React.useEffect(() => {
      localStorage.setItem('activeWorkspaceId', activeWorkspaceId);
   }, [activeWorkspaceId]);
+
+  React.useEffect(() => {
+    if (isAuthenticated) {
+       const token = localStorage.getItem('token');
+       // In a real app we'd get URL from config, but typical setup proxies or relies on same host
+       const newSocket = io({ auth: { token } });
+       setSocket(newSocket);
+       
+       newSocket.on('collection_update', () => setHistoryRefreshTrigger(prev => prev + 1));
+       newSocket.on('environment_update', () => fetchEnvironments());
+       newSocket.on('member_update', () => fetchWorkspaces());
+       
+       return () => newSocket.close();
+    }
+  }, [isAuthenticated]);
+  
+  React.useEffect(() => {
+    if (socket && activeWorkspaceId) {
+       socket.emit('join_workspace', activeWorkspaceId);
+    }
+  }, [socket, activeWorkspaceId]);
 
   const fetchWorkspaces = async () => {
     if (!isAuthenticated) return;
@@ -659,6 +729,7 @@ function App() {
         <Sidebar 
           activeNavTab={activeNavTab} 
           setActiveNavTab={setActiveNavTab} 
+          sidebarConfig={sidebarConfig}
           historyRefreshTrigger={historyRefreshTrigger} 
           openAccount={() => setShowAccount(true)}
           onNewRequest={handleNewRequest}
@@ -666,6 +737,7 @@ function App() {
           workspaces={workspaces}
           activeWorkspaceId={activeWorkspaceId}
           setActiveWorkspaceId={setActiveWorkspaceId}
+          fetchWorkspaces={fetchWorkspaces}
           onLoadRequest={(req) => {
              const existingIdx = tabs.findIndex(t => t.url === req.url && t.method === req.method);
              if (existingIdx !== -1) {
@@ -699,8 +771,31 @@ function App() {
         />
         {showAccount ? (
           <AccountManager onClose={() => setShowAccount(false)} />
+        ) : activeNavTab === 'Configure Workplace' ? (
+          <WorkspaceSettings 
+            sidebarConfig={sidebarConfig} 
+            setSidebarConfig={setSidebarConfig}
+            themeConfig={themeConfig}
+            setThemeConfig={setThemeConfig}
+            activeWorkspaceId={activeWorkspaceId}
+            workspaces={workspaces}
+            fetchWorkspaces={fetchWorkspaces}
+            currentUserId={JSON.parse(localStorage.getItem('user') || '{}').id}
+            onDeleteWorkspace={async () => {
+              if (confirm('Are you sure you want to delete this workspace? This cannot be undone.')) {
+                try {
+                   const res = await fetch(`/api/workspaces/${activeWorkspaceId}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }});
+                   if(res.ok) {
+                      setActiveWorkspaceId('default');
+                      fetchWorkspaces();
+                      setActiveNavTab('Collections');
+                   } else alert('Cannot delete this workspace');
+                } catch(e){}
+              }
+            }}
+          />
         ) : (
-          <main className="main-content flex-col w-full bg-white relative">
+          <main className="main-content flex-col w-full bg-[var(--bg-primary)] relative">
             
             {/* Top Tab Bar */}
             <div className="flex items-center overflow-x-auto border-b border-[var(--border-color)] bg-[var(--bg-secondary)] hide-scrollbar shrink-0 h-[42px] pt-1">

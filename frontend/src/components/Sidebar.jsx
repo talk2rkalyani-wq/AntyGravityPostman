@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Search, Folder, Clock, Settings, ChevronRight, ChevronDown, Star, MoreHorizontal, Archive, LayoutGrid, Network, Grid, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import Logo from './Logo';
 
-function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAccount, onNewRequest, onImport, onLoadRequest, workspaces, activeWorkspaceId, setActiveWorkspaceId }) {
+function Sidebar({ activeNavTab, setActiveNavTab, sidebarConfig, historyRefreshTrigger, openAccount, onNewRequest, onImport, onLoadRequest, workspaces, activeWorkspaceId, setActiveWorkspaceId, fetchWorkspaces }) {
   const [history, setHistory] = useState([]);
   const [collections, setCollections] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -10,6 +10,9 @@ function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAcc
   const [menuParams, setMenuParams] = useState(null);
   const [deleteConfirmParams, setDeleteConfirmParams] = useState(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [showCreateWorkspace, setShowCreateWorkspace] = useState(false);
+  const [newWorkspaceName, setNewWorkspaceName] = useState('');
+  const [newWorkspaceType, setNewWorkspaceType] = useState('personal');
 
   useEffect(() => {
     const handleClickOutside = () => setMenuParams(null);
@@ -289,29 +292,37 @@ function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAcc
     <div className="flex h-full shrink-0">
       <div className="w-20 border-r border-[var(--border-color)] flex flex-col py-2 shrink-0 bg-[var(--bg-secondary)] z-10 hidden sm:flex">
          <div className="flex flex-col items-center w-full gap-1 h-full">
+            {sidebarConfig?.Collections !== false && (
             <button className={`group w-full flex flex-col items-center justify-center py-2 relative text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors ${activeNavTab === 'Collections' ? 'text-[var(--text-primary)]' : ''}`} onClick={() => { setActiveNavTab('Collections'); setIsSidebarOpen(true); }}>
                {activeNavTab === 'Collections' && <div className="absolute left-0 w-[2px] h-full bg-[#06B6D4] rounded-r-md"></div>}
                <Archive size={20} strokeWidth={activeNavTab === 'Collections' ? 2 : 1.5} />
                <span className="text-[9px] mt-1 hidden sm:block truncate w-full text-center px-1">Collections</span>
                <div className="absolute left-full ml-2 px-2.5 py-1.5 bg-[var(--bg-primary)] border border-[var(--border-color)] shadow-xl text-[var(--text-primary)] text-xs font-medium rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity duration-150 z-[9999] top-1/2 -translate-y-1/2">Collections</div>
             </button>
+            )}
+            {sidebarConfig?.Environments !== false && (
             <button className={`group w-full flex flex-col items-center justify-center py-2 relative text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors ${activeNavTab === 'Environments' ? 'text-[var(--text-primary)]' : ''}`} onClick={() => { setActiveNavTab('Environments'); setIsSidebarOpen(true); }}>
                {activeNavTab === 'Environments' && <div className="absolute left-0 w-[2px] h-full bg-[#06B6D4] rounded-r-md"></div>}
                <LayoutGrid size={20} strokeWidth={activeNavTab === 'Environments' ? 2 : 1.5} />
                <span className="text-[9px] mt-1 hidden sm:block truncate w-full text-center px-1">Environments</span>
                <div className="absolute left-full ml-2 px-2.5 py-1.5 bg-[var(--bg-primary)] border border-[var(--border-color)] shadow-xl text-[var(--text-primary)] text-xs font-medium rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity duration-150 z-[9999] top-1/2 -translate-y-1/2">Environments</div>
             </button>
+            )}
+            {sidebarConfig?.History !== false && (
             <button className={`group w-full flex flex-col items-center justify-center py-2 relative text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors ${activeNavTab === 'History' ? 'text-[var(--text-primary)]' : ''}`} onClick={() => { setActiveNavTab('History'); setIsSidebarOpen(true); }}>
                {activeNavTab === 'History' && <div className="absolute left-0 w-[2px] h-full bg-[#06B6D4] rounded-r-md"></div>}
                <Clock size={20} strokeWidth={activeNavTab === 'History' ? 2 : 1.5} />
                <span className="text-[9px] mt-1 hidden sm:block truncate w-full text-center px-1">History</span>
                <div className="absolute left-full ml-2 px-2.5 py-1.5 bg-[var(--bg-primary)] border border-[var(--border-color)] shadow-xl text-[var(--text-primary)] text-xs font-medium rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity duration-150 z-[9999] top-1/2 -translate-y-1/2">History</div>
             </button>
+            )}
+            {sidebarConfig?.Flows !== false && (
             <button className="group w-full flex flex-col items-center justify-center py-2 relative text-[var(--text-secondary)] opacity-50 cursor-not-allowed transition-colors" onClick={() => {}}>
                <Network size={20} strokeWidth={1.5} />
                <span className="text-[9px] mt-1 hidden sm:block truncate w-full text-center px-1">Flows</span>
                <div className="absolute left-full ml-2 px-2.5 py-1.5 bg-[var(--bg-primary)] border border-[var(--border-color)] shadow-xl text-[var(--text-primary)] text-xs font-medium rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap transition-opacity duration-150 z-[9999] top-1/2 -translate-y-1/2">Feature coming soon</div>
             </button>
+            )}
 
             <div className="w-10 border-t border-[var(--border-color)] my-2"></div>
             <button className={`group w-14 h-12 flex items-center justify-center relative transition-colors rounded bg-[#f3f4f6] dark:bg-[var(--bg-tertiary)] text-[var(--text-primary)]`} onClick={() => { setActiveNavTab('Configure Workplace'); setIsSidebarOpen(true); }}>
@@ -336,12 +347,21 @@ function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAcc
       <div className="p-3 border-b border-[var(--border-color)]">
          <select 
             value={activeWorkspaceId || 'default'} 
-            onChange={(e) => setActiveWorkspaceId(e.target.value)}
+            onChange={(e) => {
+               if (e.target.value === 'create_new') {
+                 setShowCreateWorkspace(true);
+                 e.target.value = activeWorkspaceId;
+               } else {
+                 setActiveWorkspaceId(e.target.value);
+               }
+            }}
             className="w-full bg-[var(--bg-tertiary)] text-[var(--text-primary)] border border-[var(--border-color)] rounded-md px-3 py-2 text-sm font-semibold hover:border-blue-500/50 focus:border-blue-500 outline-none transition-colors cursor-pointer appearance-none"
          >
             {workspaces?.map(w => (
                <option key={w.id} value={w.id}>{w.name}</option>
             ))}
+            <option disabled>──────────</option>
+            <option value="create_new">+ Create Workspace</option>
          </select>
          <div className="pointer-events-none absolute right-6 top-[22px] flex items-center px-2 text-[var(--text-muted)]">
             <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
@@ -380,7 +400,11 @@ function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAcc
       </div>
 
       <div className="flex-1 overflow-y-auto px-2 mt-2 custom-scrollbar">
-        {activeNavTab === 'Collections' ? (
+        {activeNavTab === 'Configure Workplace' ? (
+           <div className="flex flex-col items-center justify-center h-full p-4 text-center mt-10">
+              <span className="text-[var(--text-secondary)]">Navigate workspace settings on the right.</span>
+           </div>
+        ) : activeNavTab === 'Collections' ? (
           <div className="flex flex-col gap-1 pb-10">
              {loading ? (
                 <div className="p-3 text-sm text-[var(--text-muted)] text-center">Loading...</div>
@@ -564,6 +588,44 @@ function Sidebar({ activeNavTab, setActiveNavTab, historyRefreshTrigger, openAcc
                   >
                      Delete
                   </button>
+               </div>
+            </div>
+         </div>
+      )}
+      
+      {showCreateWorkspace && (
+         <div className="fixed inset-0 bg-black/50 z-[10000] flex items-center justify-center p-4">
+            <div className="bg-[var(--bg-primary)] rounded-lg shadow-2xl w-full max-w-sm flex flex-col overflow-hidden relative border border-[var(--border-color)] fade-in">
+               <div className="p-6">
+                  <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Create Workspace</h3>
+                  <div className="flex flex-col gap-3">
+                     <input 
+                        type="text" 
+                        autoFocus
+                        placeholder="Workspace Name" 
+                        className="w-full p-2 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded outline-none text-[var(--text-primary)] text-sm"
+                        value={newWorkspaceName}
+                        onChange={(e) => setNewWorkspaceName(e.target.value)}
+                     />
+                     <select 
+                        className="w-full p-2 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded outline-none text-[var(--text-primary)] text-sm"
+                        value={newWorkspaceType}
+                        onChange={(e) => setNewWorkspaceType(e.target.value)}
+                     >
+                        <option value="personal">Personal</option>
+                        <option value="team">Team Workspace</option>
+                     </select>
+                  </div>
+               </div>
+               <div className="flex items-center justify-end px-6 py-4 bg-[var(--bg-secondary)] border-t border-[var(--border-color)] gap-3">
+                  <button className="px-4 py-2 rounded text-sm font-semibold hover:bg-[var(--bg-tertiary)]" onClick={() => setShowCreateWorkspace(false)}>Cancel</button>
+                  <button className="btn-primary" onClick={async () => {
+                     if(!newWorkspaceName.trim()) return;
+                     try {
+                       const res = await fetch('/api/workspaces', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` }, body: JSON.stringify({ name: newWorkspaceName, type: newWorkspaceType }) });
+                       if(res.ok) { const body = await res.json(); setActiveWorkspaceId(body.id); fetchWorkspaces && fetchWorkspaces(); setShowCreateWorkspace(false); setNewWorkspaceName(''); }
+                     } catch(e){}
+                  }}>Create</button>
                </div>
             </div>
          </div>

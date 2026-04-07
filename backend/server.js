@@ -4,9 +4,13 @@ const axios = require('axios');
 const path = require('path');
 const bcrypt = require('bcryptjs');
 const db = require('./db');
+const http = require('http');
+const { Server } = require('socket.io');
 
 const app = express();
 const PORT = process.env.PORT || 5001;
+const server = http.createServer(app);
+const io = new Server(server, { cors: { origin: '*' } });
 
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
@@ -105,6 +109,37 @@ const requireAuth = async (req, res, next) => {
     res.status(500).json({ error: 'Server error during auth' });
   }
 };
+
+const checkWorkspaceAccess = async (userId, workspaceId, requiredRole) => {
+  if (workspaceId === 'default' || !workspaceId) return true;
+  const member = await db.getWorkspaceMember(workspaceId, userId);
+  const workspaces = await db.getWorkspaces(userId);
+  const workspace = workspaces.find(w => w.id === workspaceId);
+  if (workspace && workspace.owner_id === userId) return true;
+  if (!member) return false;
+  if (requiredRole === 'viewer') return true;
+  if (requiredRole === 'editor' && (member.role === 'editor' || member.role === 'admin')) return true;
+  if (requiredRole === 'admin' && member.role === 'admin') return true;
+  return false;
+};
+
+io.use(async (socket, next) => {
+  const token = socket.handshake.auth?.token;
+  if (!token) return next(new Error('Unauthorized'));
+  const user = await db.getUserBySession(token);
+  if (!user) return next(new Error('Invalid token'));
+  socket.user = user;
+  next();
+});
+
+io.on('connection', (socket) => {
+  socket.on('join_workspace', async (workspaceId) => {
+    const hasAccess = await checkWorkspaceAccess(socket.user.id, workspaceId, 'viewer');
+    if (!hasAccess) return;
+    socket.rooms.forEach(r => r !== socket.id && socket.leave(r));
+    socket.join(workspaceId);
+  });
+});
 
 app.post('/api/auth/register', async (req, res) => {
   const { username, email, password } = req.body;
@@ -206,50 +241,90 @@ app.get('/api/history', async (req, res) => {
 
 app.get('/api/collections', async (req, res) => {
   const workspaceId = req.query.workspace || 'default';
+  if (!(await checkWorkspaceAccess(req.user.id, workspaceId, 'viewer'))) return res.status(403).json({ error: 'Forbidden' });
   try { res.json(await db.getCollections(req.user.id, workspaceId)); } catch(e) { res.status(500).json({error:e.message}); }
 });
 
 app.post('/api/collections', async (req, res) => {
   const { name, data, workspace_id } = req.body;
   if (!name || !data) return res.status(400).json({ error: 'Name and Data are required.' });
-  try { res.status(201).json(await db.createCollection(name, data, req.user.id, workspace_id || 'default')); } catch(e){ res.status(500).json({error:e.message}); }
+  const wId = workspace_id || 'default';
+  if (!(await checkWorkspaceAccess(req.user.id, wId, 'editor'))) return res.status(403).json({ error: 'Forbidden' });
+  try { 
+      const col = await db.createCollection(name, data, req.user.id, wId); 
+      io.to(wId).emit('collection_update');
+      res.status(201).json(col); 
+  } catch(e){ res.status(500).json({error:e.message}); }
 });
 
 app.put('/api/collections/:id', async (req, res) => {
   const { id } = req.params;
   const { data } = req.body;
   if (!data) return res.status(400).json({ error: 'Data is required.' });
-  try { res.json(await db.updateCollection(id, data, req.user.id)); } catch(e){ res.status(500).json({error:e.message}); }
+  try { 
+      const col = await db.getCollection(id);
+      if(!col) return res.status(404).json({error: 'Not found'});
+      if (!(await checkWorkspaceAccess(req.user.id, col.workspace_id, 'editor'))) return res.status(403).json({ error: 'Forbidden' });
+      const updated = await db.updateCollection(id, data); 
+      io.to(col.workspace_id).emit('collection_update');
+      res.json(updated); 
+  } catch(e){ res.status(500).json({error:e.message}); }
 });
 
 app.delete('/api/collections/:id', async (req, res) => {
   const { id } = req.params;
   try { 
-      await db.deleteCollection(id, req.user.id);
+      const col = await db.getCollection(id);
+      if(!col) return res.status(404).json({error: 'Not found'});
+      if (!(await checkWorkspaceAccess(req.user.id, col.workspace_id, 'editor'))) return res.status(403).json({ error: 'Forbidden' });
+      await db.deleteCollection(id);
+      io.to(col.workspace_id).emit('collection_update');
       res.json({ message: 'Collection deleted successfully' }); 
   } catch(e){ res.status(500).json({error:e.message}); }
 });
 
 app.get('/api/environments', async (req, res) => {
   const workspaceId = req.query.workspace || 'default';
+  if (!(await checkWorkspaceAccess(req.user.id, workspaceId, 'viewer'))) return res.status(403).json({ error: 'Forbidden' });
   try { res.json(await db.getEnvironments(req.user.id, workspaceId)); } catch(e) { res.status(500).json({error:e.message}); }
 });
 
 app.post('/api/environments', async (req, res) => {
   const { name, data, workspace_id } = req.body;
   if (!name || !data) return res.status(400).json({ error: 'Name and Data are required.' });
-  try { res.status(201).json(await db.createEnvironment(name, data, req.user.id, workspace_id || 'default')); } catch(e){ res.status(500).json({error:e.message}); }
+  const wId = workspace_id || 'default';
+  if (!(await checkWorkspaceAccess(req.user.id, wId, 'editor'))) return res.status(403).json({ error: 'Forbidden' });
+  try { 
+      const env = await db.createEnvironment(name, data, req.user.id, wId); 
+      io.to(wId).emit('environment_update');
+      res.status(201).json(env); 
+  } catch(e){ res.status(500).json({error:e.message}); }
 });
 
 app.put('/api/environments/:id', async (req, res) => {
   const { id } = req.params;
   const { name, data } = req.body;
   if (!name || !data) return res.status(400).json({ error: 'Name and Data are required.' });
-  try { res.json(await db.updateEnvironment(id, name, data, req.user.id)); } catch(e){ res.status(500).json({error:e.message}); }
+  try { 
+      const env = await db.getEnvironment(id);
+      if(!env) return res.status(404).json({error: 'Not found'});
+      if (!(await checkWorkspaceAccess(req.user.id, env.workspace_id, 'editor'))) return res.status(403).json({ error: 'Forbidden' });
+      const updated = await db.updateEnvironment(id, name, data); 
+      io.to(env.workspace_id).emit('environment_update');
+      res.json(updated); 
+  } catch(e){ res.status(500).json({error:e.message}); }
 });
 
 app.delete('/api/environments/:id', async (req, res) => {
-  try { await db.deleteEnvironment(req.params.id, req.user.id); res.status(204).send(); } catch(e){ res.status(500).json({error:e.message}); }
+  const { id } = req.params;
+  try { 
+      const env = await db.getEnvironment(id);
+      if(!env) return res.status(404).json({error: 'Not found'});
+      if (!(await checkWorkspaceAccess(req.user.id, env.workspace_id, 'editor'))) return res.status(403).json({ error: 'Forbidden' });
+      await db.deleteEnvironment(id); 
+      io.to(env.workspace_id).emit('environment_update');
+      res.status(204).send(); 
+  } catch(e){ res.status(500).json({error:e.message}); }
 });
 
 app.get('/api/members', async (req, res) => {
@@ -274,14 +349,54 @@ app.delete('/api/members/:id', async (req, res) => {
   try { await db.removeMember(id); res.status(204).send(); } catch(e){ res.status(500).json({error:e.message}); }
 });
 
+app.get('/api/workspaces/:id/members', async (req, res) => {
+  try {
+     if (!(await checkWorkspaceAccess(req.user.id, req.params.id, 'viewer'))) return res.status(403).json({ error: 'Forbidden' });
+     res.json(await db.getWorkspaceMembers(req.params.id));
+  } catch(e){ res.status(500).json({error:e.message}); }
+});
+
+app.post('/api/workspaces/:id/members', async (req, res) => {
+  try {
+     if (!(await checkWorkspaceAccess(req.user.id, req.params.id, 'admin'))) return res.status(403).json({ error: 'Forbidden' });
+     const { identifier, role } = req.body;
+     const targetUser = await db.getUserByEmailOrUsername(identifier);
+     if(!targetUser) return res.status(404).json({error: 'User not found'});
+     await db.addWorkspaceMember(req.params.id, targetUser.id, role || 'viewer');
+     io.to(req.params.id).emit('member_update');
+     res.json({message: 'Added'});
+  } catch(e){ res.status(500).json({error:e.message}); }
+});
+
+app.put('/api/workspaces/:id/members/:userId/role', async (req, res) => {
+  try {
+     if (!(await checkWorkspaceAccess(req.user.id, req.params.id, 'admin'))) return res.status(403).json({ error: 'Forbidden' });
+     await db.updateWorkspaceMemberRole(req.params.id, req.params.userId, req.body.role);
+     io.to(req.params.id).emit('member_update');
+     res.json({message: 'Updated'});
+  } catch(e){ res.status(500).json({error:e.message}); }
+});
+
+app.delete('/api/workspaces/:id/members/:userId', async (req, res) => {
+  try {
+     if (!(await checkWorkspaceAccess(req.user.id, req.params.id, 'admin')) && req.user.id !== req.params.userId) return res.status(403).json({ error: 'Forbidden' });
+     await db.removeWorkspaceMember(req.params.id, req.params.userId);
+     io.to(req.params.id).emit('member_update');
+     res.json({message: 'Removed'});
+  } catch(e){ res.status(500).json({error:e.message}); }
+});
+
 app.get('/api/workspaces', async (req, res) => {
   try { res.json(await db.getWorkspaces(req.user.id)); } catch(e){ res.status(500).json({error:e.message}); }
 });
 
 app.post('/api/workspaces', async (req, res) => {
-  const { name } = req.body;
+  const { name, type } = req.body;
   if (!name) return res.status(400).json({ error: 'Name is required' });
-  try { res.status(201).json(await db.addWorkspace(name, req.user.id)); } catch(e){ res.status(500).json({error:e.message}); }
+  try { 
+      const wp = await db.addWorkspace(name, req.user.id, type || 'personal'); 
+      res.status(201).json(wp); 
+  } catch(e){ res.status(500).json({error:e.message}); }
 });
 
 app.put('/api/workspaces/:id', async (req, res) => {
@@ -303,6 +418,6 @@ app.use((req, res, next) => {
   res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
 });
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Backend server running on http://localhost:${PORT}`);
 });

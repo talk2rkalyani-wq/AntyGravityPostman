@@ -80,6 +80,30 @@ async function initDb() {
     db.exec('ALTER TABLE workspaces ADD COLUMN user_id TEXT REFERENCES users(id)');
   } catch(e) {}
 
+  try {
+    db.exec("ALTER TABLE collections ADD COLUMN workspace_id TEXT DEFAULT 'default'");
+    db.exec("ALTER TABLE environments ADD COLUMN workspace_id TEXT DEFAULT 'default'");
+  } catch(e) {}
+
+  try {
+    db.exec("ALTER TABLE workspaces ADD COLUMN type TEXT DEFAULT 'personal'");
+    db.exec("ALTER TABLE workspaces ADD COLUMN owner_id TEXT REFERENCES users(id)");
+  } catch(e) {}
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS workspace_members (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT,
+      user_id TEXT,
+      role TEXT,
+      joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
+      FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+      UNIQUE(workspace_id, user_id)
+    );
+  `);
+
+
   // Ensure 'My Workspace' exists
   const wpStmt = db.prepare('SELECT count(*) as cnt FROM workspaces');
   if (wpStmt.get().cnt === 0) {
@@ -114,10 +138,20 @@ function createCollection(name, data, userId, workspaceId = 'default') {
   return { id, name, data };
 }
 
-function updateCollection(id, data, userId) {
-  const stmt = db.prepare('UPDATE collections SET data = ? WHERE id = ? AND user_id = ?');
-  stmt.run(JSON.stringify(data), id, userId);
+function getCollection(id) {
+  return db.prepare('SELECT * FROM collections WHERE id = ?').get(id);
+}
+
+function updateCollection(id, data) {
+  const stmt = db.prepare('UPDATE collections SET data = ? WHERE id = ?');
+  stmt.run(JSON.stringify(data), id);
   return { id, data };
+}
+
+function deleteCollection(id) {
+  const stmt = db.prepare('DELETE FROM collections WHERE id = ?');
+  stmt.run(id);
+  return true;
 }
 
 // --- Environments ---
@@ -128,6 +162,13 @@ function getEnvironments(userId, workspaceId = 'default') {
   return rows.map(r => ({ ...r, data: r.data ? JSON.parse(r.data) : null }));
 }
 
+function getEnvironment(id) {
+  const stmt = db.prepare('SELECT * FROM environments WHERE id = ?');
+  const r = stmt.get(id);
+  if (r) r.data = r.data ? JSON.parse(r.data) : null;
+  return r;
+}
+
 function createEnvironment(name, data, userId, workspaceId = 'default') {
   const id = uuidv4();
   const stmt = db.prepare('INSERT INTO environments (id, name, data, user_id, workspace_id) VALUES (?, ?, ?, ?, ?)');
@@ -135,15 +176,15 @@ function createEnvironment(name, data, userId, workspaceId = 'default') {
   return { id, name, data };
 }
 
-function updateEnvironment(id, name, data, userId) {
-  const stmt = db.prepare('UPDATE environments SET name = ?, data = ? WHERE id = ? AND user_id = ?');
-  stmt.run(name, JSON.stringify(data), id, userId);
+function updateEnvironment(id, name, data) {
+  const stmt = db.prepare('UPDATE environments SET name = ?, data = ? WHERE id = ?');
+  stmt.run(name, JSON.stringify(data), id);
   return { id, name, data };
 }
 
-function deleteEnvironment(id, userId) {
-  const stmt = db.prepare('DELETE FROM environments WHERE id = ? AND user_id = ?');
-  stmt.run(id, userId);
+function deleteEnvironment(id) {
+  const stmt = db.prepare('DELETE FROM environments WHERE id = ?');
+  stmt.run(id);
   return true;
 }
 
@@ -175,15 +216,53 @@ function removeMember(id) {
 // --- Workspaces ---
 function getWorkspaces(userId) {
   if (!userId) return [];
-  const stmt = db.prepare('SELECT * FROM workspaces WHERE user_id = ? OR id = ? ORDER BY created_at ASC');
-  return stmt.all(userId, 'default');
+  const stmt = db.prepare(`
+    SELECT w.* FROM workspaces w
+    LEFT JOIN workspace_members wm ON w.id = wm.workspace_id
+    WHERE w.user_id = ? OR w.id = ? OR wm.user_id = ?
+    GROUP BY w.id
+    ORDER BY w.created_at ASC
+  `);
+  return stmt.all(userId, 'default', userId);
 }
 
-function addWorkspace(name, userId) {
+function addWorkspace(name, userId, type = 'personal') {
   const id = uuidv4();
-  const stmt = db.prepare('INSERT INTO workspaces (id, name, user_id) VALUES (?, ?, ?)');
-  stmt.run(id, name, userId);
-  return { id, name };
+  const stmt = db.prepare('INSERT INTO workspaces (id, name, user_id, type, owner_id) VALUES (?, ?, ?, ?, ?)');
+  stmt.run(id, name, userId, type, userId);
+  if (type === 'team') {
+     addWorkspaceMember(id, userId, 'admin');
+  }
+  return { id, name, type, owner_id: userId };
+}
+
+function addWorkspaceMember(workspaceId, userId, role) {
+  const id = uuidv4();
+  const stmt = db.prepare('INSERT INTO workspace_members (id, workspace_id, user_id, role) VALUES (?, ?, ?, ?) ON CONFLICT(workspace_id, user_id) DO UPDATE SET role=excluded.role');
+  stmt.run(id, workspaceId, userId, role);
+  return { id, workspaceId, userId, role };
+}
+
+function getWorkspaceMembers(workspaceId) {
+  const stmt = db.prepare(`
+    SELECT wm.*, u.email, u.username as name
+    FROM workspace_members wm
+    JOIN users u ON wm.user_id = u.id
+    WHERE wm.workspace_id = ?
+  `);
+  return stmt.all(workspaceId);
+}
+
+function updateWorkspaceMemberRole(workspaceId, userId, role) {
+  db.prepare('UPDATE workspace_members SET role = ? WHERE workspace_id = ? AND user_id = ?').run(role, workspaceId, userId);
+}
+
+function removeWorkspaceMember(workspaceId, userId) {
+  db.prepare('DELETE FROM workspace_members WHERE workspace_id = ? AND user_id = ?').run(workspaceId, userId);
+}
+
+function getWorkspaceMember(workspaceId, userId) {
+  return db.prepare('SELECT * FROM workspace_members WHERE workspace_id = ? AND user_id = ?').get(workspaceId, userId);
 }
 
 function updateWorkspace(id, name, userId) {
@@ -284,21 +363,19 @@ function updatePasswordByEmail(email, passwordHash) {
   }
 }
 
-function deleteCollection(id, userId) {
-  const stmt = db.prepare('DELETE FROM collections WHERE id = ? AND user_id = ?');
-  stmt.run(id, userId);
-  return true;
-}
+
 
 module.exports = {
   initDb,
   saveHistory,
   getHistory,
   getCollections,
+  getCollection,
   createCollection,
   updateCollection,
   deleteCollection,
   getEnvironments,
+  getEnvironment,
   createEnvironment,
   updateEnvironment,
   deleteEnvironment,
@@ -319,5 +396,10 @@ module.exports = {
   saveOtp,
   verifyOtp,
   verifyResetToken,
-  updatePasswordByEmail
+  updatePasswordByEmail,
+  addWorkspaceMember,
+  getWorkspaceMembers,
+  updateWorkspaceMemberRole,
+  removeWorkspaceMember,
+  getWorkspaceMember
 };
