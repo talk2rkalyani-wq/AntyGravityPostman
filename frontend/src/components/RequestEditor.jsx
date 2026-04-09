@@ -15,6 +15,7 @@ function RequestEditor({ requestState, setRequestState, onSend, onSave, onCodeCl
 
   // Compute collection variables for the tooltip
   let collectionVars = [];
+  let collectionId = null;
   if (collections) {
      const findReqRecursively = (items, reqId) => {
          for (const item of items) {
@@ -30,6 +31,7 @@ function RequestEditor({ requestState, setRequestState, onSend, onSave, onCodeCl
              items = data.items || [];
          } catch(e) {}
          if (findReqRecursively(items, id)) {
+            collectionId = col.id;
             try {
                 const data = typeof col.data === 'string' ? JSON.parse(col.data) : col.data;
                 collectionVars = data.variables || [];
@@ -41,6 +43,36 @@ function RequestEditor({ requestState, setRequestState, onSend, onSave, onCodeCl
 
   const resolvedUrl = resolveVariables(url, activeEnvVars || [], collectionVars || []);
   const unresolvedVars = getUnresolvedVariables(url, activeEnvVars || [], collectionVars || []);
+
+  const [showVarPopover, setShowVarPopover] = React.useState(false);
+  const [editingVar, setEditingVar] = React.useState({});
+  const hoverTimeoutRef = React.useRef(null);
+
+  const handleMouseEnter = () => {
+    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+    setShowVarPopover(true);
+  };
+  const handleMouseLeave = () => {
+    hoverTimeoutRef.current = setTimeout(() => {
+      setShowVarPopover(false);
+    }, 250);
+  };
+
+  const urlVarsMatch = [...url.matchAll(/\{\{([^}]+)\}\}/g)].map(m => m[1].trim());
+  const urlVars = [...new Set(urlVarsMatch)];
+
+  const varDetails = urlVars.map(v => {
+      let isEnv = false;
+      let isCol = false;
+      let val = '';
+      const envRow = (activeEnvVars || []).find(e => e.key === v && e.active !== false);
+      if (envRow) { isEnv = true; val = envRow.value; }
+      else {
+         const colRow = (collectionVars || []).find(e => e.key === v && e.active !== false);
+         if (colRow) { isCol = true; val = colRow.value; }
+      }
+      return { key: v, value: val, isEnv, isCol, isMissing: !isEnv && !isCol };
+  });
 
   return (
     <div className="flex-1 flex flex-col min-h-[40%] border-b border-[var(--border-color)] p-4 pt-2">
@@ -58,14 +90,79 @@ function RequestEditor({ requestState, setRequestState, onSend, onSave, onCodeCl
           <option value="PATCH">PATCH</option>
         </select>
         <div className="w-[1px] h-8 bg-[var(--border-color)]"></div>
-        <input 
-          type="text" 
-          value={url}
-          onChange={handleUrlChange}
-          placeholder="Enter request URL" 
-          title={resolvedUrl !== url ? `Resolved URL: ${resolvedUrl}` : ''}
-          className="flex-1 bg-transparent border-none text-[var(--text-primary)] px-2 outline-none font-mono text-sm"
-        />
+        <div 
+          className="flex-1 relative flex items-center"
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+        >
+           <input 
+             type="text" 
+             value={url}
+             onChange={handleUrlChange}
+             placeholder="Enter request URL" 
+             title={resolvedUrl !== url ? `Resolved URL: ${resolvedUrl}` : ''}
+             className="flex-1 w-full bg-transparent border-none text-[var(--text-primary)] px-2 outline-none font-mono text-sm"
+           />
+           {showVarPopover && urlVars.length > 0 && (
+              <div 
+                 className="absolute top-[130%] left-0 z-[1000] bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-lg shadow-2xl p-1.5 min-w-[320px] max-w-[450px] animate-in fade-in slide-in-from-top-2 before:content-[''] before:absolute before:w-full before:h-4 before:-top-4 before:left-0" 
+                 onClick={e => e.stopPropagation()}
+              >
+                 <div className="flex flex-col">
+                    {varDetails.map((vd, i) => (
+                       <div key={vd.key} className={`p-2 flex flex-col gap-2 ${i > 0 ? 'border-t border-[var(--border-color)]' : ''}`}>
+                          <div className="flex items-center gap-1.5">
+                             <span className="font-mono text-[var(--accent-cyan)] font-bold text-xs">{`{{${vd.key}}}`}</span>
+                          </div>
+                          <div className="bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded overflow-hidden shadow-inner focus-within:border-[var(--accent-cyan)] transition-colors">
+                             <input 
+                                type="text" 
+                                value={editingVar[vd.key] ?? vd.value}
+                                onChange={(e) => setEditingVar({...editingVar, [vd.key]: e.target.value})}
+                                onBlur={async (e) => {
+                                    const newVal = e.target.value;
+                                    if (newVal === vd.value) return; 
+                                    if (vd.isCol && collectionId) {
+                                       const col = collections.find(c => c.id === collectionId);
+                                       if (col) {
+                                           const data = typeof col.data === 'string' ? JSON.parse(col.data) : col.data;
+                                           if (!data.variables) data.variables = [];
+                                           const tv = data.variables.find(v => v.key === vd.key);
+                                           if (tv) tv.value = newVal;
+                                           else data.variables.push({ key: vd.key, value: newVal, active: true });
+                                           try {
+                                              await fetch(`/api/collections/${collectionId}`, {
+                                                  method: 'PUT',
+                                                  headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' },
+                                                  body: JSON.stringify({ data })
+                                              });
+                                           } catch(e) {}
+                                       }
+                                    }
+                                }}
+                                placeholder={vd.isMissing ? 'Variable not found' : 'Empty value'}
+                                className="w-full bg-transparent border-none outline-none text-sm font-mono text-[var(--text-primary)] px-2.5 py-1.5 focus:ring-0"
+                             />
+                          </div>
+                          <div className="flex items-center justify-between px-1 mt-0.5">
+                             <div className="flex items-center gap-1.5 opacity-80">
+                                <div className={`w-4 h-4 flex items-center justify-center rounded text-[8px] font-bold ${vd.isEnv ? 'bg-purple-500/20 text-purple-500' : vd.isCol ? 'bg-orange-500/20 text-orange-500' : 'bg-red-500/20 text-red-500'}`}>
+                                   {vd.isEnv ? 'E' : vd.isCol ? 'C' : '!'}
+                                </div>
+                                <span className="text-[10px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
+                                   {vd.isEnv ? 'Environment' : vd.isCol ? 'Collection' : 'Unresolved'}
+                                </span>
+                             </div>
+                             <span className="text-[10px] text-[var(--text-muted)] cursor-pointer hover:text-[#06B6D4] transition-colors hover:underline">
+                                Variables in request <span className="ml-0.5">→</span>
+                             </span>
+                          </div>
+                       </div>
+                    ))}
+                 </div>
+              </div>
+           )}
+        </div>
         <div className="flex items-center gap-2 px-2 border-r border-[var(--border-color)]">
           <label className="flex items-center gap-1.5 cursor-pointer" title="Route requests through the cloud backend (fixes CORS but blocks localhost) or send directly from your browser.">
              <input type="checkbox" checked={useProxy} onChange={e => setUseProxy(e.target.checked)} className="rounded border-[var(--border-color)] text-[#06B6D4] focus:ring-0 focus:ring-offset-0 bg-transparent w-3 h-3 cursor-pointer" />
