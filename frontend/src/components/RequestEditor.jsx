@@ -4,7 +4,7 @@ import KeyValueEditor from './KeyValueEditor';
 import BodyEditor from './BodyEditor';
 import AuthEditor from './AuthEditor';
 import ScriptEditor from './ScriptEditor';
-import { resolveVariables } from '../utils/variableResolver';
+import { resolveVariables, getUnresolvedVariables } from '../utils/variableResolver';
 
 function RequestEditor({ requestState, setRequestState, onSend, onSave, onCodeClick, useProxy, setUseProxy, activeEnvVars, collections }) {
   const { method, url, activeTab, params, headers, id } = requestState;
@@ -40,6 +40,7 @@ function RequestEditor({ requestState, setRequestState, onSend, onSave, onCodeCl
   }
 
   const resolvedUrl = resolveVariables(url, activeEnvVars || [], collectionVars || []);
+  const unresolvedVars = getUnresolvedVariables(url, activeEnvVars || [], collectionVars || []);
 
   return (
     <div className="flex-1 flex flex-col min-h-[40%] border-b border-[var(--border-color)] p-4 pt-2">
@@ -82,6 +83,33 @@ function RequestEditor({ requestState, setRequestState, onSend, onSave, onCodeCl
           <Play size={13} fill="currentColor" />
         </button>
       </div>
+      
+      {(resolvedUrl !== url || unresolvedVars.length > 0) && (
+        <div className="flex flex-col gap-1 mb-4 mt-[-10px]">
+           {resolvedUrl !== url && (
+               <div className="flex items-center gap-2">
+                   <div className="text-[10px] font-bold text-[#06B6D4] bg-[#06B6D4]/10 border border-[#06B6D4]/20 px-2 py-0.5 rounded-full flex gap-1 items-center w-max">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>
+                      RESOLVED BASE URL
+                   </div>
+                   <div className="text-xs text-[var(--text-secondary)] font-mono truncate max-w-[80%]">
+                      {resolvedUrl}
+                   </div>
+               </div>
+           )}
+           {unresolvedVars.length > 0 && (
+               <div className="flex items-center gap-2">
+                   <div className="text-[10px] font-bold text-[#F59E0B] bg-[#F59E0B]/10 border border-[#F59E0B]/20 px-2 py-0.5 rounded-full flex gap-1 items-center w-max">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                      VARIABLE NOT FOUND
+                   </div>
+                   <div className="text-xs text-[#F59E0B] font-mono truncate max-w-[80%]">
+                      {unresolvedVars.map(v => `{{${v}}}`).join(', ')}
+                   </div>
+               </div>
+           )}
+        </div>
+      )}
 
       <div className="tab-nav mb-4">
         {['Params', 'Headers', 'Body', 'Scripts', 'Auth'].map(tab => (
