@@ -713,7 +713,7 @@ function App() {
            });
         }
         
-        const newTab = { ...createNewTab(), ...parsedRequest };
+        const newTab = { ...createNewTab(), ...parsedRequest, id: dataToSave.id, name: reqName };
         setTabs(prev => [...prev, newTab]);
         setActiveTabId(newTab.id);
         
@@ -788,7 +788,7 @@ function App() {
           setCollectionsState={setCollections}
           fetchCollections={fetchCollections}
           onLoadRequest={(req) => {
-             const existingIdx = tabs.findIndex(t => t.url === req.url && t.method === req.method);
+             const existingIdx = tabs.findIndex(t => t.id === req.id);
              if (existingIdx !== -1) {
                 // If already open as a tab, just switch to it
                 setActiveTabId(tabs[existingIdx].id);
@@ -811,6 +811,7 @@ function App() {
                    postResponseScript: req.postResponseScript || '',
                    authType: req.authType || 'No Auth',
                    authData: req.authData || {},
+                   id: req.id || window.crypto.randomUUID()
                 };
                 setTabs(prev => [...prev, newTab]);
                 setActiveTabId(newTab.id);
