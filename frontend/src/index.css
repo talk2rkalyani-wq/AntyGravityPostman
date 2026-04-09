@@ -34,10 +34,29 @@
   --shadow-glow: 0 0 15px rgba(6, 182, 212, 0.4);
 }
 
+.light {
+  --bg-primary: #F8FAFC;
+  --bg-secondary: #F1F5F9;
+  --bg-tertiary: #E2E8F0;
+
+  --text-primary: #0F172A;
+  --text-secondary: #334155;
+  --text-muted: #64748B;
+
+  --border-color: rgba(0, 0, 0, 0.1);
+  --border-glow: rgba(6, 182, 212, 0.2);
+
+  --shadow-glow: 0 0 10px rgba(6, 182, 212, 0.2);
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+}
+
+html {
+  zoom: 0.88;
 }
 
 body {

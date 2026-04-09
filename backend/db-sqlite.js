@@ -55,6 +55,12 @@ async function initDb() {
       username TEXT UNIQUE,
       email TEXT UNIQUE,
       password_hash TEXT,
+      first_name TEXT,
+      last_name TEXT,
+      contact_number TEXT,
+      role TEXT DEFAULT 'Organization Admin',
+      timezone TEXT DEFAULT 'UTC',
+      profile_photo TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -78,6 +84,15 @@ async function initDb() {
     db.exec('ALTER TABLE collections ADD COLUMN user_id TEXT REFERENCES users(id)');
     db.exec('ALTER TABLE environments ADD COLUMN user_id TEXT REFERENCES users(id)');
     db.exec('ALTER TABLE workspaces ADD COLUMN user_id TEXT REFERENCES users(id)');
+  } catch(e) {}
+
+  try {
+    db.exec('ALTER TABLE users ADD COLUMN first_name TEXT');
+    db.exec('ALTER TABLE users ADD COLUMN last_name TEXT');
+    db.exec('ALTER TABLE users ADD COLUMN contact_number TEXT');
+    db.exec("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'Organization Admin'");
+    db.exec("ALTER TABLE users ADD COLUMN timezone TEXT DEFAULT 'UTC'");
+    db.exec('ALTER TABLE users ADD COLUMN profile_photo TEXT');
   } catch(e) {}
 
   try {
@@ -294,12 +309,12 @@ function createUser(username, email, passwordHash) {
 }
 
 function getUserByEmailOrUsername(identifier) {
-  const stmt = db.prepare('SELECT * FROM users WHERE email = ? OR username = ?');
+  const stmt = db.prepare('SELECT id, username, email, password_hash, first_name, last_name, contact_number, role, timezone, profile_photo FROM users WHERE email = ? OR username = ?');
   return stmt.get(identifier, identifier);
 }
 
 function getUserById(id) {
-  const stmt = db.prepare('SELECT id, username, email, created_at FROM users WHERE id = ?');
+  const stmt = db.prepare('SELECT id, username, email, first_name, last_name, contact_number, role, timezone, profile_photo, created_at FROM users WHERE id = ?');
   return stmt.get(id);
 }
 
@@ -312,12 +327,32 @@ function createSession(userId) {
 
 function getUserBySession(token) {
   const stmt = db.prepare(`
-    SELECT users.id, users.username, users.email 
+    SELECT users.id, users.username, users.email, users.first_name, users.last_name, users.contact_number, users.role, users.timezone, users.profile_photo 
     FROM users 
     JOIN sessions ON users.id = sessions.user_id 
     WHERE sessions.token = ?
   `);
   return stmt.get(token);
+}
+
+function updateUserProfile(id, profileData) {
+  const { first_name, last_name, contact_number, timezone, profile_photo } = profileData;
+  const updates = [];
+  const params = [];
+
+  if (first_name !== undefined) { updates.push('first_name = ?'); params.push(first_name); }
+  if (last_name !== undefined) { updates.push('last_name = ?'); params.push(last_name); }
+  if (contact_number !== undefined) { updates.push('contact_number = ?'); params.push(contact_number); }
+  if (timezone !== undefined) { updates.push('timezone = ?'); params.push(timezone); }
+  if (profile_photo !== undefined) { updates.push('profile_photo = ?'); params.push(profile_photo); }
+
+  if (updates.length > 0) {
+    params.push(id);
+    const stmt = db.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`);
+    stmt.run(...params);
+  }
+
+  return getUserById(id);
 }
 
 function deleteSession(token) {
@@ -393,6 +428,7 @@ module.exports = {
   createSession,
   getUserBySession,
   deleteSession,
+  updateUserProfile,
   saveOtp,
   verifyOtp,
   verifyResetToken,

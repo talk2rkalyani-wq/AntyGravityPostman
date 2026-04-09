@@ -166,7 +166,20 @@ app.post('/api/auth/login', async (req, res) => {
     }
     
     const token = await db.createSession(user.id);
-    res.json({ user: { id: user.id, username: user.username, email: user.email }, token });
+    res.json({ 
+       user: { 
+         id: user.id, 
+         username: user.username, 
+         email: user.email,
+         first_name: user.first_name,
+         last_name: user.last_name,
+         contact_number: user.contact_number,
+         role: user.role,
+         timezone: user.timezone,
+         profile_photo: user.profile_photo
+       }, 
+       token 
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -182,6 +195,15 @@ app.post('/api/auth/logout', requireAuth, async (req, res) => {
     if (token) await db.deleteSession(token);
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/api/auth/profile', requireAuth, async (req, res) => {
+  try {
+    const updatedUser = await db.updateUserProfile(req.user.id, req.body);
+    res.json({ user: updatedUser });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.post('/api/auth/forgot-password', async (req, res) => {

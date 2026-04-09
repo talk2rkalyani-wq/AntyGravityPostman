@@ -1,16 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronDown, Plus, Trash, Edit2, Check, X, Settings2 } from 'lucide-react';
+import { ChevronDown, Plus, Trash, Edit2, Check, X, Settings2, User, Moon, Sun, LogOut } from 'lucide-react';
 import Logo from './Logo';
 
-function Header({ onLogout, onGoHome, environments, activeEnvId, setActiveEnvId, openEnvManager }) {
+function Header({ user, onLogout, onGoHome, environments, activeEnvId, setActiveEnvId, openEnvManager, onProfileClick, themeConfig, setThemeConfig }) {
   const [workspaces, setWorkspaces] = useState([]);
   const [activeWorkspace, setActiveWorkspace] = useState(null);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [newWpName, setNewWpName] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [editName, setEditName] = useState('');
   const dropdownRef = useRef(null);
+  const profileMenuRef = useRef(null);
 
   const fetchWorkspaces = async () => {
     try {
@@ -32,6 +34,9 @@ function Header({ onLogout, onGoHome, environments, activeEnvId, setActiveEnvId,
     const handleClickOutside = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         setShowDropdown(false);
+      }
+      if (profileMenuRef.current && !profileMenuRef.current.contains(e.target)) {
+        setShowProfileMenu(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -231,14 +236,70 @@ function Header({ onLogout, onGoHome, environments, activeEnvId, setActiveEnvId,
         <div className="text-xs text-[var(--accent-cyan)] font-medium border border-[var(--accent-cyan)] rounded px-3 py-1.5 bg-cyan-900 bg-opacity-20 cursor-default">
            {activeWorkspace ? activeWorkspace.name : 'Loading Workspace...'}
         </div>
-        {onLogout && (
-          <button 
-            onClick={onLogout}
-            className="text-xs text-red-500 hover:text-white hover:bg-red-500 border border-red-500 rounded px-3 py-1 font-medium transition-colors"
-          >
-            Logout
-          </button>
-        )}
+
+        {/* Profile Dropdown */}
+        <div className="relative ml-2" ref={profileMenuRef}>
+           <button 
+              onClick={() => setShowProfileMenu(!showProfileMenu)}
+              className="flex items-center justify-center w-8 h-8 rounded-full bg-[var(--bg-tertiary)] border border-[var(--border-color)] overflow-hidden hover:border-[var(--accent-cyan)] transition-colors"
+           >
+              {user?.profile_photo ? (
+                 <img src={user.profile_photo} alt="Profile" className="w-full h-full object-cover" />
+              ) : (
+                 <User size={16} className="text-[var(--text-secondary)]" />
+              )}
+           </button>
+
+           {showProfileMenu && (
+              <div className="absolute right-0 top-10 w-56 glass-panel shadow-2xl z-[100] flex flex-col py-1 overflow-hidden animate-in fade-in slide-in-from-top-2 text-sm font-medium">
+                 <div className="px-4 py-3 border-b border-[var(--border-color)] mb-1 flex flex-col gap-0.5">
+                    <span className="text-[var(--text-primary)] font-bold truncate">Hello {user?.first_name || user?.username || 'User'}</span>
+                    <span className="text-xs text-[var(--text-muted)] truncate">{user?.timezone || 'Timezone Not Set'}</span>
+                 </div>
+                 
+                 <button 
+                    className="flex items-center gap-2 px-4 py-2 hover:bg-[var(--bg-tertiary)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+                    onClick={() => { setShowProfileMenu(false); onProfileClick?.(); }}
+                 >
+                    <User size={14} /> My Profile
+                 </button>
+                 
+                 <button className="flex items-center gap-2 px-4 py-2 hover:bg-[var(--bg-tertiary)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
+                    <Settings2 size={14} /> Settings
+                 </button>
+
+                 <div className="h-[1px] bg-[var(--border-color)] my-1"></div>
+
+                 <button 
+                    className="flex items-center justify-between px-4 py-2 hover:bg-[var(--bg-tertiary)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+                    onClick={() => {
+                        const newTheme = themeConfig.themeColor === 'dark' ? 'light' : 'dark';
+                        setThemeConfig({ ...themeConfig, themeColor: newTheme });
+                    }}
+                 >
+                    <span className="flex items-center gap-2">
+                       {themeConfig?.themeColor === 'dark' ? <Moon size={14} /> : <Sun size={14} />}
+                       {themeConfig?.themeColor === 'dark' ? 'Dark Theme' : 'Light Theme'}
+                    </span>
+                    <div className={`w-8 h-4 rounded-full p-0.5 transition-colors ${themeConfig?.themeColor === 'dark' ? 'bg-[#06B6D4]' : 'bg-[var(--bg-tertiary)] border border-[var(--border-color)]'}`}>
+                       <div className={`w-3 h-3 rounded-full bg-white transition-transform ${themeConfig?.themeColor === 'dark' ? 'translate-x-4' : 'translate-x-0'}`}></div>
+                    </div>
+                 </button>
+
+                 <div className="h-[1px] bg-[var(--border-color)] my-1"></div>
+
+                 {onLogout && (
+                    <button 
+                       className="flex items-center gap-2 px-4 py-2 hover:bg-red-500/10 text-red-400 hover:text-red-500 transition-colors"
+                       onClick={() => { setShowProfileMenu(false); onLogout(); }}
+                    >
+                       <LogOut size={14} /> Logout
+                    </button>
+                 )}
+              </div>
+           )}
+        </div>
+
       </div>
     </header>
   );

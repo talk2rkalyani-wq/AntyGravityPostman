@@ -58,6 +58,11 @@ function App() {
     };
   });
 
+  const [user, setUser] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('user')); } catch(e) { return null; }
+  });
+  const [showProfile, setShowProfile] = useState(false);
+
   React.useEffect(() => {
     localStorage.setItem('sidebarConfig', JSON.stringify(sidebarConfig));
   }, [sidebarConfig]);
@@ -74,9 +79,10 @@ function App() {
     }
   }, [themeConfig]);
 
-  const handleLoginSuccess = (token, user) => {
+  const handleLoginSuccess = (token, userObj) => {
     localStorage.setItem('token', token);
-    localStorage.setItem('user', JSON.stringify(user));
+    localStorage.setItem('user', JSON.stringify(userObj));
+    setUser(userObj);
     setIsAuthenticated(true);
   };
 
@@ -757,13 +763,27 @@ function App() {
   return (
     <div className="flex flex-col h-screen w-screen bg-[var(--bg-primary)] overflow-hidden">
       <Header 
+         user={user}
          onLogout={handleLogout} 
          onGoHome={handleGoHome} 
          environments={environments}
          activeEnvId={activeEnvId}
          setActiveEnvId={setActiveEnvId}
          openEnvManager={() => setIsEnvManagerOpen(true)}
+         onProfileClick={() => setShowProfile(true)}
+         themeConfig={themeConfig}
+         setThemeConfig={setThemeConfig}
       />
+      {showProfile && user && (
+         <ProfileModal 
+            user={user} 
+            setUser={(u) => {
+               setUser(u);
+               localStorage.setItem('user', JSON.stringify(u));
+            }} 
+            onClose={() => setShowProfile(false)} 
+         />
+      )}
       {isEnvManagerOpen && (
          <EnvironmentManager 
             onClose={() => setIsEnvManagerOpen(false)}
