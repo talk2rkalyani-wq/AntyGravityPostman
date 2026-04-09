@@ -47,6 +47,7 @@ function RequestEditor({ requestState, setRequestState, onSend, onSave, onCodeCl
   const [showVarPopover, setShowVarPopover] = React.useState(false);
   const [editingVar, setEditingVar] = React.useState({});
   const hoverTimeoutRef = React.useRef(null);
+  const highlightRef = React.useRef(null);
 
   const handleMouseEnter = () => {
     if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
@@ -91,17 +92,38 @@ function RequestEditor({ requestState, setRequestState, onSend, onSave, onCodeCl
         </select>
         <div className="w-[1px] h-8 bg-[var(--border-color)]"></div>
         <div 
-          className="flex-1 relative flex items-center"
+          className="flex-1 relative flex items-center group overflow-hidden"
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
         >
+           {/* Syntax Highlight Layer */}
+           <div 
+             ref={highlightRef}
+             className="absolute inset-0 pointer-events-none px-2 flex items-center whitespace-pre text-sm font-mono overflow-x-hidden"
+             style={{ color: 'var(--text-primary)' }}
+           >
+              {(() => {
+                 if (!url) return <span className="text-[var(--text-muted)] opacity-50 font-sans text-sm tracking-normal">Enter request URL</span>;
+                 const parts = url.split(/(\{\{[^}]+\}\})/g);
+                 return parts.map((part, i) => {
+                    if (part.startsWith('{{') && part.endsWith('}}')) {
+                       return <span key={i} className="bg-[#06B6D4]/20 text-[#06B6D4] rounded-[3px] border border-[#06B6D4]/30">{part}</span>;
+                    }
+                    return <span key={i}>{part}</span>;
+                 });
+              })()}
+           </div>
+
            <input 
              type="text" 
              value={url}
              onChange={handleUrlChange}
-             placeholder="Enter request URL" 
+             onScroll={e => {
+                 if (highlightRef.current) highlightRef.current.scrollLeft = e.target.scrollLeft;
+             }}
              title={resolvedUrl !== url ? `Resolved URL: ${resolvedUrl}` : ''}
-             className="flex-1 w-full bg-transparent border-none text-[var(--text-primary)] px-2 outline-none font-mono text-sm"
+             className="flex-1 w-full bg-transparent border-none outline-none font-mono text-sm px-2 z-10 relative"
+             style={{ color: 'transparent', caretColor: 'var(--text-primary)' }}
            />
            {showVarPopover && urlVars.length > 0 && (
               <div 
