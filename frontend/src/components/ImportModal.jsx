@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, UploadCloud, ChevronDown, Github, ExternalLink } from 'lucide-react';
+import { extractCollectionVariables } from '../utils/variableResolver';
 
 function parseCurl(curlCommand) {
   let method = 'GET';
@@ -221,14 +222,15 @@ function ImportModal({ onClose, onImportRequest, onImportAndSave, onImportComple
                if (content.info && content.item) {
                   const colName = content.info.name || file.name.replace('.json', '');
                   const requests = extractRequestsFromPostman(content.item);
+                  const variables = extractCollectionVariables(content);
                   if (requests.length > 0) {
-                     await onImportCompleteCollection(colName, requests);
+                     await onImportCompleteCollection(colName, requests, variables);
                      onClose();
                   } else {
                      alert(`Found empty collection in ${file.name}`);
                   }
                } else if (content.requests && Array.isArray(content.requests)) {
-                  await onImportCompleteCollection(file.name.replace('.json', ''), content.requests);
+                  await onImportCompleteCollection(file.name.replace('.json', ''), content.requests, []);
                   onClose();
                } else {
                   alert(`File ${file.name} does not seem to be a valid Postman collection.`);

@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Search, Folder, Clock, Settings, ChevronRight, ChevronDown, Star, MoreHorizontal, Archive, LayoutGrid, Network, Grid, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import Logo from './Logo';
 
-function Sidebar({ activeNavTab, setActiveNavTab, sidebarConfig, historyRefreshTrigger, openAccount, onNewRequest, onImport, onLoadRequest, workspaces, activeWorkspaceId, setActiveWorkspaceId, fetchWorkspaces }) {
+function Sidebar({ activeNavTab, setActiveNavTab, sidebarConfig, historyRefreshTrigger, openAccount, onNewRequest, onImport, onLoadRequest, workspaces, activeWorkspaceId, setActiveWorkspaceId, fetchWorkspaces, collectionsState, setCollectionsState, fetchCollections }) {
   const [history, setHistory] = useState([]);
-  const [collections, setCollections] = useState([]);
+  const collections = collectionsState || [];
+  const setCollections = setCollectionsState;
   const [loading, setLoading] = useState(false);
   const [expandedCollections, setExpandedCollections] = useState({});
   const [menuParams, setMenuParams] = useState(null);
@@ -20,14 +21,8 @@ function Sidebar({ activeNavTab, setActiveNavTab, sidebarConfig, historyRefreshT
     return () => window.removeEventListener('click', handleClickOutside);
   }, []);
 
-  const fetchCollections = () => {
-    fetch(`/api/collections?workspace=${activeWorkspaceId}`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-    })
-    .then(res => res.json())
-    .then(data => setCollections(data))
-    .catch(err => console.error(err));
-  };
+  // fetchCollections is now passed from parent
+  // We use the parent's fetchCollections when we need to manually refresh
 
   useEffect(() => {
     if (activeNavTab === 'History') {

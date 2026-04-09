@@ -4,13 +4,42 @@ import KeyValueEditor from './KeyValueEditor';
 import BodyEditor from './BodyEditor';
 import AuthEditor from './AuthEditor';
 import ScriptEditor from './ScriptEditor';
+import { resolveVariables } from '../utils/variableResolver';
 
-function RequestEditor({ requestState, setRequestState, onSend, onSave, onCodeClick, useProxy, setUseProxy }) {
-  const { method, url, activeTab, params, headers } = requestState;
+function RequestEditor({ requestState, setRequestState, onSend, onSave, onCodeClick, useProxy, setUseProxy, activeEnvVars, collections }) {
+  const { method, url, activeTab, params, headers, id } = requestState;
 
   const handleMethodChange = (e) => setRequestState({ ...requestState, method: e.target.value });
   const handleUrlChange = (e) => setRequestState({ ...requestState, url: e.target.value });
   const handleTabChange = (tab) => setRequestState({ ...requestState, activeTab: tab });
+
+  // Compute collection variables for the tooltip
+  let collectionVars = [];
+  if (collections) {
+     const findReqRecursively = (items, reqId) => {
+         for (const item of items) {
+             if (item.id === reqId) return true;
+             if (item.type === 'folder' && item.items && findReqRecursively(item.items, reqId)) return true;
+         }
+         return false;
+     };
+     for (const col of collections) {
+         let items = [];
+         try {
+             const data = typeof col.data === 'string' ? JSON.parse(col.data) : col.data;
+             items = data.items || [];
+         } catch(e) {}
+         if (findReqRecursively(items, id)) {
+            try {
+                const data = typeof col.data === 'string' ? JSON.parse(col.data) : col.data;
+                collectionVars = data.variables || [];
+            } catch(e) {}
+            break;
+         }
+     }
+  }
+
+  const resolvedUrl = resolveVariables(url, activeEnvVars || [], collectionVars || []);
 
   return (
     <div className="flex-1 flex flex-col min-h-[40%] border-b border-[var(--border-color)] p-4 pt-2">
@@ -33,6 +62,7 @@ function RequestEditor({ requestState, setRequestState, onSend, onSave, onCodeCl
           value={url}
           onChange={handleUrlChange}
           placeholder="Enter request URL" 
+          title={resolvedUrl !== url ? `Resolved URL: ${resolvedUrl}` : ''}
           className="flex-1 bg-transparent border-none text-[var(--text-primary)] px-2 outline-none font-mono text-sm"
         />
         <div className="flex items-center gap-2 px-2 border-r border-[var(--border-color)]">

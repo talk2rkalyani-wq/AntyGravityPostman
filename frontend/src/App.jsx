@@ -19,6 +19,7 @@ import ForgotPassword from './components/ForgotPassword';
 import WorkspaceSettings from './components/WorkspaceSettings';
 import './index.css';
 import { io } from 'socket.io-client';
+import { resolveVariables } from './utils/variableResolver';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('token'));
@@ -129,6 +130,7 @@ function App() {
   const [isDraggingDivider, setIsDraggingDivider] = useState(false);
 
   const [environments, setEnvironments] = useState([]);
+  const [collections, setCollections] = useState([]);
   const [activeEnvId, setActiveEnvId] = useState('');
   const [isEnvManagerOpen, setIsEnvManagerOpen] = useState(false);
 
@@ -148,7 +150,7 @@ function App() {
        const newSocket = io({ auth: { token } });
        setSocket(newSocket);
        
-       newSocket.on('collection_update', () => setHistoryRefreshTrigger(prev => prev + 1));
+       newSocket.on('collection_update', () => { fetchCollections(); setHistoryRefreshTrigger(prev => prev + 1); });
        newSocket.on('environment_update', () => fetchEnvironments());
        newSocket.on('member_update', () => fetchWorkspaces());
        
@@ -180,10 +182,20 @@ function App() {
     } catch(e) {}
   };
 
+  const fetchCollections = async () => {
+    if (!isAuthenticated) return;
+    try {
+      const res = await fetch(`/api/collections?workspace=${activeWorkspaceId}`, { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }});
+      const data = await res.json();
+      setCollections(data);
+    } catch(e) {}
+  };
+
   React.useEffect(() => {
     if (isAuthenticated) {
        fetchWorkspaces();
        fetchEnvironments();
+       fetchCollections();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, activeWorkspaceId]);
@@ -257,14 +269,6 @@ function App() {
     setTabState(currentTabId, { loading: true, response: null });
 
     try {
-      const replaceEnvVars = (str, envData) => {
-         if (!str || typeof str !== 'string') return str;
-         return str.replace(/\{\{([^}]+)\}\}/g, (match, key) => {
-            const row = envData.find(e => e.key === key.trim());
-            return row ? row.value : match;
-         });
-      };
-
       let activeEnvVars = [];
       if (activeEnvId) {
          const env = environments.find(e => e.id === activeEnvId);
@@ -272,6 +276,33 @@ function App() {
             try { activeEnvVars = typeof env.data === 'string' ? JSON.parse(env.data) : env.data; } catch(e) {}
          }
       }
+
+      // Find collection variables
+      let collectionVars = [];
+      const findReqRecursively = (items, reqId) => {
+         for (const item of items) {
+             if (item.id === reqId) return true;
+             if (item.type === 'folder' && item.items && findReqRecursively(item.items, reqId)) return true;
+         }
+         return false;
+      };
+      
+      for (const col of collections) {
+         let items = [];
+         try {
+             const data = typeof col.data === 'string' ? JSON.parse(col.data) : col.data;
+             items = data.items || [];
+         } catch(e) {}
+         if (findReqRecursively(items, activeRequest.id)) {
+            try {
+                const data = typeof col.data === 'string' ? JSON.parse(col.data) : col.data;
+                collectionVars = data.variables || [];
+            } catch(e) {}
+            break;
+         }
+      }
+
+
 
       let envMutated = false;
       let pm = {
@@ -308,12 +339,12 @@ function App() {
       }
 
       // Build URL with params if they exist and are active
-      let finalUrl = replaceEnvVars(reqClone.url, activeEnvVars);
+      let finalUrl = resolveVariables(reqClone.url, activeEnvVars, collectionVars);
       try {
         const urlObj = new URL(finalUrl.startsWith('http') ? finalUrl : `http://${finalUrl}`);
         reqClone.params.forEach(p => {
           if (p.active && p.key) {
-             urlObj.searchParams.append(replaceEnvVars(p.key, activeEnvVars), replaceEnvVars(p.value, activeEnvVars));
+             urlObj.searchParams.append(resolveVariables(p.key, activeEnvVars, collectionVars), resolveVariables(p.value, activeEnvVars, collectionVars));
           }
         });
         finalUrl = urlObj.toString();
@@ -326,19 +357,19 @@ function App() {
       const compiledHeaders = {};
       reqClone.headers.forEach(h => {
         if (h.active && h.key) {
-           compiledHeaders[replaceEnvVars(h.key, activeEnvVars)] = replaceEnvVars(h.value, activeEnvVars);
+           compiledHeaders[resolveVariables(h.key, activeEnvVars, collectionVars)] = resolveVariables(h.value, activeEnvVars, collectionVars);
         }
       });
       
       // Auth logic
       if (reqClone.authType === 'Bearer Token' && reqClone.authData.bearerToken) {
-         compiledHeaders['Authorization'] = `Bearer ${replaceEnvVars(reqClone.authData.bearerToken, activeEnvVars)}`;
+         compiledHeaders['Authorization'] = `Bearer ${resolveVariables(reqClone.authData.bearerToken, activeEnvVars, collectionVars)}`;
       } else if (reqClone.authType === 'Basic Auth' && (reqClone.authData.basicUsername || reqClone.authData.basicPassword)) {
-         const encoded = btoa(`${replaceEnvVars(reqClone.authData.basicUsername, activeEnvVars) || ''}:${replaceEnvVars(reqClone.authData.basicPassword, activeEnvVars) || ''}`);
+         const encoded = btoa(`${resolveVariables(reqClone.authData.basicUsername, activeEnvVars, collectionVars) || ''}:${resolveVariables(reqClone.authData.basicPassword, activeEnvVars, collectionVars) || ''}`);
          compiledHeaders['Authorization'] = `Basic ${encoded}`;
       } else if (reqClone.authType === 'API Key' && reqClone.authData.apiKeyKey && reqClone.authData.apiKeyValue) {
-         const keyResolved = replaceEnvVars(reqClone.authData.apiKeyKey, activeEnvVars);
-         const valResolved = replaceEnvVars(reqClone.authData.apiKeyValue, activeEnvVars);
+         const keyResolved = resolveVariables(reqClone.authData.apiKeyKey, activeEnvVars, collectionVars);
+         const valResolved = resolveVariables(reqClone.authData.apiKeyValue, activeEnvVars, collectionVars);
          if (reqClone.authData.apiKeyAddTo === 'Header') {
             compiledHeaders[keyResolved] = valResolved;
          } else if (reqClone.authData.apiKeyAddTo === 'Query Params') {
@@ -352,7 +383,7 @@ function App() {
       let finalData = undefined;
       if (reqClone.method !== 'GET' && reqClone.method !== 'HEAD') {
          if (reqClone.bodyType === 'raw') {
-            finalData = replaceEnvVars(reqClone.bodyRaw, activeEnvVars);
+            finalData = resolveVariables(reqClone.bodyRaw, activeEnvVars, collectionVars);
             if (!Object.keys(compiledHeaders).some(k => k.toLowerCase() === 'content-type') && finalData) {
                 try {
                    JSON.parse(finalData);
@@ -363,21 +394,21 @@ function App() {
          } else if (reqClone.bodyType === 'x-www-form-urlencoded') {
             const params = new URLSearchParams();
             reqClone.bodyUrlEncoded.forEach(item => {
-               if (item.active && item.key) params.append(replaceEnvVars(item.key, activeEnvVars), replaceEnvVars(item.value, activeEnvVars));
+               if (item.active && item.key) params.append(resolveVariables(item.key, activeEnvVars, collectionVars), resolveVariables(item.value, activeEnvVars, collectionVars));
             });
             finalData = params.toString();
             compiledHeaders['Content-Type'] = 'application/x-www-form-urlencoded';
          } else if (reqClone.bodyType === 'form-data') {
             const fdObj = {};
             reqClone.bodyFormData.forEach(item => {
-               if (item.active && item.key) fdObj[replaceEnvVars(item.key, activeEnvVars)] = replaceEnvVars(item.value, activeEnvVars);
+               if (item.active && item.key) fdObj[resolveVariables(item.key, activeEnvVars, collectionVars)] = resolveVariables(item.value, activeEnvVars, collectionVars);
             });
             finalData = fdObj;
             compiledHeaders['Content-Type'] = 'multipart/form-data'; 
          } else if (reqClone.bodyType === 'GraphQL') {
             finalData = {
-               query: replaceEnvVars(reqClone.bodyGraphQLQuery, activeEnvVars),
-               variables: reqClone.bodyGraphQLVariables ? JSON.parse(replaceEnvVars(reqClone.bodyGraphQLVariables, activeEnvVars)) : {}
+               query: resolveVariables(reqClone.bodyGraphQLQuery, activeEnvVars, collectionVars),
+               variables: reqClone.bodyGraphQLVariables ? JSON.parse(resolveVariables(reqClone.bodyGraphQLVariables, activeEnvVars, collectionVars)) : {}
             };
             compiledHeaders['Content-Type'] = 'application/json';
          }
@@ -573,7 +604,7 @@ function App() {
       setShowSaveModal(true);
    };
 
-   const handleImportCompleteCollection = async (colName, requestsArray) => {
+   const handleImportCompleteCollection = async (colName, requestsArray, variables = []) => {
      try {
         const mapRecursive = (arr) => arr.map(item => {
            if (item.type === 'folder' || item.items) {
@@ -594,11 +625,22 @@ function App() {
         const colRes = await fetch(`/api/collections?workspace=${activeWorkspaceId}`, {
           headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
         });
-        const collections = await colRes.json();
-        const existing = collections.find(c => c.name === colName);
+        const collectionsData = await colRes.json();
+        const existing = collectionsData.find(c => c.name === colName);
 
         if (existing) {
-           let items = normalizeCollectionData(existing.data);
+           let data = typeof existing.data === 'string' ? JSON.parse(existing.data) : existing.data;
+           let items = normalizeCollectionData(data);
+           let existingVars = data?.variables || [];
+           
+           // Merge new variables, preferring newly imported ones
+           const mergedVars = [...variables];
+           existingVars.forEach(ev => {
+               if (!mergedVars.find(mv => mv.key === ev.key)) {
+                   mergedVars.push(ev);
+               }
+           });
+           
            items.push(...mappedRequests);
            
            await fetch(`/api/collections/${existing.id}`, {
@@ -607,7 +649,7 @@ function App() {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${localStorage.getItem('token')}`
               },
-              body: JSON.stringify({ data: { items, requests: [] } })
+              body: JSON.stringify({ data: { items, requests: [], variables: mergedVars } })
            });
         } else {
            await fetch('/api/collections', {
@@ -616,10 +658,11 @@ function App() {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${localStorage.getItem('token')}`
               },
-              body: JSON.stringify({ name: colName, data: { items: mappedRequests }, workspace_id: activeWorkspaceId })
+              body: JSON.stringify({ name: colName, data: { items: mappedRequests, variables }, workspace_id: activeWorkspaceId })
            });
         }
         
+        await fetchCollections();
         setActiveNavTab('Collections');
         setHistoryRefreshTrigger(prev => prev + 1);
      } catch(e) {
@@ -741,6 +784,9 @@ function App() {
           activeWorkspaceId={activeWorkspaceId}
           setActiveWorkspaceId={setActiveWorkspaceId}
           fetchWorkspaces={fetchWorkspaces}
+          collectionsState={collections}
+          setCollectionsState={setCollections}
+          fetchCollections={fetchCollections}
           onLoadRequest={(req) => {
              const existingIdx = tabs.findIndex(t => t.url === req.url && t.method === req.method);
              if (existingIdx !== -1) {
@@ -870,6 +916,8 @@ function App() {
                         onCodeClick={() => setShowCodeSnippetModal(true)}
                         useProxy={useProxy}
                         setUseProxy={setUseProxy}
+                        activeEnvVars={activeEnvId ? (environments.find(e => e.id === activeEnvId)?.data || []) : []}
+                        collections={collections}
                      />
                    </div>
                    
