@@ -775,16 +775,6 @@ function App() {
          themeConfig={themeConfig}
          setThemeConfig={setThemeConfig}
       />
-      {showProfile && user && (
-         <ProfileModal 
-            user={user} 
-            setUser={(u) => {
-               setUser(u);
-               localStorage.setItem('user', JSON.stringify(u));
-            }} 
-            onClose={() => setShowProfile(false)} 
-         />
-      )}
       {isEnvManagerOpen && (
          <EnvironmentManager 
             onClose={() => setIsEnvManagerOpen(false)}
@@ -839,7 +829,16 @@ function App() {
              }
           }}
         />
-        {showAccount ? (
+        {showProfile && user ? (
+           <ProfileModal 
+              user={user} 
+              setUser={(u) => {
+                 setUser(u);
+                 localStorage.setItem('user', JSON.stringify(u));
+              }} 
+              onClose={() => setShowProfile(false)} 
+           />
+        ) : showAccount ? (
           <AccountManager onClose={() => setShowAccount(false)} />
         ) : activeNavTab === 'Configure Workplace' ? (
           <WorkspaceSettings 
