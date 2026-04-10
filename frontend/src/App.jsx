@@ -761,7 +761,7 @@ function App() {
   }
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-[var(--bg-primary)] overflow-hidden">
+    <div className="flex flex-col h-full w-full bg-[var(--bg-primary)] overflow-hidden">
       <Header 
          user={user}
          onLogout={handleLogout} 
