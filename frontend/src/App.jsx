@@ -17,6 +17,7 @@ import Login from './components/Login';
 import Signup from './components/Signup';
 import ForgotPassword from './components/ForgotPassword';
 import WorkspaceSettings from './components/WorkspaceSettings';
+import ProfileModal from './components/ProfileModal';
 import './index.css';
 import { io } from 'socket.io-client';
 import { resolveVariables } from './utils/variableResolver';
