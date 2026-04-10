@@ -37,22 +37,22 @@ export default function Login({ onLogin, onNavigateSignup, onNavigateForgot }) {
   };
 
   return (
-    <div className="min-h-full w-full bg-[#0F172A] flex items-center justify-center p-4 font-sans relative overflow-hidden" style={{ zoom: '0.7' }}>
+    <div className="min-h-full w-full bg-[var(--bg-primary)] flex items-center justify-center p-4 font-sans relative overflow-hidden" style={{ zoom: '0.7' }}>
       {/* Background Ornaments */}
       <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-cyan-500 rounded-full mix-blend-multiply filter blur-[128px] opacity-20"></div>
       <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-purple-600 rounded-full mix-blend-multiply filter blur-[128px] opacity-20"></div>
 
-      <div className="w-full max-w-md bg-[#1E293B]/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden relative z-10">
+      <div className="w-full max-w-md bg-[var(--bg-secondary)] bg-opacity-80 backdrop-blur-xl border border-[var(--border-color)] rounded-2xl shadow-2xl overflow-hidden relative z-10">
         
         {/* Branding Area */}
         <div className="p-8 text-center pb-0">
           <div className="mx-auto w-16 h-16 bg-gradient-to-br from-cyan-400 to-purple-500 rounded-full flex items-center justify-center shadow-lg shadow-cyan-500/30 mb-6 relative">
-            <div className="absolute inset-[2px] rounded-full bg-[#0F172A] flex items-center justify-center">
+            <div className="absolute inset-[2px] rounded-full bg-[var(--bg-primary)] flex items-center justify-center">
               <Logo className="w-8 h-8" />
             </div>
           </div>
-          <h2 className="text-3xl font-bold tracking-tight text-white mb-2">Sign in to NeonAPI</h2>
-          <p className="text-gray-400 text-sm">Welcome back! Please enter your details.</p>
+          <h2 className="text-3xl font-bold tracking-tight text-[var(--text-primary)] mb-2">Sign in to NeonAPI</h2>
+          <p className="text-[var(--text-secondary)] text-sm">Welcome back! Please enter your details.</p>
         </div>
 
         {/* Form Area */}
@@ -67,65 +67,65 @@ export default function Login({ onLogin, onNavigateSignup, onNavigateForgot }) {
             )}
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1.5">Email or username</label>
+              <label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">Email or username</label>
               <input 
                 type="text" 
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
                 required
                 maxLength={100}
-                className="w-full bg-[#0F172A]/50 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500 transition-all placeholder-gray-500"
+                className="w-full bg-[var(--bg-primary)] bg-opacity-50 border border-[var(--border-color)] rounded-lg px-4 py-3 text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500 transition-all placeholder-[var(--text-muted)]"
                 placeholder="Enter email or username"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1.5">Password</label>
+              <label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">Password</label>
               <div className="relative">
                 <input 
                   type={showPassword ? "text" : "password"} 
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="w-full bg-[#0F172A]/50 border border-white/10 rounded-lg px-4 py-3 pr-12 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500 transition-all placeholder-gray-500"
+                  className="w-full bg-[var(--bg-primary)] bg-opacity-50 border border-[var(--border-color)] rounded-lg px-4 py-3 pr-12 text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500 transition-all placeholder-[var(--text-muted)]"
                   placeholder="••••••••"
                 />
                 <button 
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-cyan-400 transition-colors"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-[var(--text-secondary)] hover:text-cyan-400 transition-colors"
                 >
                   {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
               </div>
-              <div className="bg-white/5 border border-cyan-500/30 rounded p-3 text-xs text-cyan-200/70 mt-3">
-                <strong>Password Guidelines:</strong> Minimum 6 characters combining uppercase, lowercase, numbers, and symbols.
+              <div className="bg-[var(--bg-tertiary)] bg-opacity-30 border border-cyan-500/30 rounded p-3 text-xs text-cyan-400 mt-3 font-medium">
+                <strong className="text-cyan-500">Password Guidelines:</strong> Minimum 6 characters combining uppercase, lowercase, numbers, and symbols.
               </div>
             </div>
 
             <div className="flex items-center justify-between text-sm">
               <label className="flex items-center space-x-2 cursor-pointer group">
-                <input type="checkbox" className="w-4 h-4 rounded border-gray-600 bg-gray-700 text-cyan-500 focus:ring-cyan-500/50 focus:ring-1 focus:ring-offset-0 transition-all" />
-                <span className="text-gray-400 group-hover:text-gray-200 transition-colors">Stay signed in</span>
+                <input type="checkbox" className="w-4 h-4 rounded border-[var(--border-color)] bg-[var(--bg-tertiary)] text-cyan-500 focus:ring-cyan-500/50 focus:ring-1 focus:ring-offset-0 transition-all" />
+                <span className="text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors">Stay signed in</span>
               </label>
               <button type="button" onClick={onNavigateForgot} className="text-cyan-400 hover:text-cyan-300 font-medium transition-colors">Forgot password?</button>
             </div>
 
             {/* Verify Human Checkbox (Visual imitation) */}
-            <div className="bg-white/5 border border-white/10 rounded-lg p-4 flex flex-col justify-center">
+            <div className="bg-[var(--bg-tertiary)] bg-opacity-30 border border-[var(--border-color)] rounded-lg p-4 flex flex-col justify-center">
                <label className="flex items-center space-x-3 cursor-pointer select-none">
                  <div className="relative flex items-center justify-center">
                    <input 
                      type="checkbox" 
-                     className="peer appearance-none w-6 h-6 border-2 border-gray-500 rounded bg-[#0F172A] checked:bg-cyan-500 checked:border-cyan-500 transition-all cursor-pointer"
+                     className="peer appearance-none w-6 h-6 border-2 border-[var(--border-color)] rounded bg-[var(--bg-primary)] checked:bg-cyan-500 checked:border-cyan-500 transition-all cursor-pointer"
                      checked={isHuman}
                      onChange={(e) => setIsHuman(e.target.checked)}
                    />
-                   <svg className="absolute w-4 h-4 text-[#0F172A] pointer-events-none opacity-0 peer-checked:opacity-100" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
+                   <svg className="absolute w-4 h-4 text-[var(--bg-primary)] pointer-events-none opacity-0 peer-checked:opacity-100" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                    </svg>
                  </div>
-                 <span className="text-gray-300 font-medium tracking-wide">Verify you are human</span>
+                 <span className="text-[var(--text-primary)] font-medium tracking-wide">Verify you are human</span>
                </label>
             </div>
 
@@ -140,10 +140,10 @@ export default function Login({ onLogin, onNavigateSignup, onNavigateForgot }) {
           <div className="mt-8">
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-white/10"></div>
+                <div className="w-full border-t border-[var(--border-color)]"></div>
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-3 bg-[#1E293B] text-gray-400">or</span>
+                <span className="px-3 bg-[var(--bg-secondary)] text-[var(--text-secondary)]">or</span>
               </div>
             </div>
 
@@ -169,8 +169,8 @@ export default function Login({ onLogin, onNavigateSignup, onNavigateForgot }) {
         </div>
 
         {/* Footer Area */}
-        <div className="bg-black/20 p-4 text-center border-t border-white/10">
-          <p className="text-gray-400 text-sm">
+        <div className="bg-[var(--bg-secondary)] bg-opacity-50 p-4 text-center border-t border-[var(--border-color)]">
+          <p className="text-[var(--text-secondary)] text-sm">
             Don't have an account?{' '}
             <button onClick={onNavigateSignup} className="text-cyan-400 hover:text-cyan-300 font-bold transition-colors">
               Create a free account

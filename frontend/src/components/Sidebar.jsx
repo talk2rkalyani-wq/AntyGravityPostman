@@ -320,7 +320,7 @@ function Sidebar({ activeNavTab, setActiveNavTab, sidebarConfig, historyRefreshT
             )}
 
             <div className="w-10 border-t border-[var(--border-color)] my-2"></div>
-            <button className={`group w-14 h-12 flex items-center justify-center relative transition-colors rounded bg-[#f3f4f6] dark:bg-[var(--bg-tertiary)] text-[var(--text-primary)]`} onClick={() => { setActiveNavTab('Configure Workplace'); setIsSidebarOpen(true); }}>
+            <button className={`group w-14 h-12 flex items-center justify-center relative transition-colors rounded bg-[var(--bg-tertiary)] hover:bg-[var(--border-color)] text-[var(--text-primary)]`} onClick={() => { setActiveNavTab('Configure Workplace'); setIsSidebarOpen(true); }}>
                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
                   <rect x="3" y="3" width="7" height="7" rx="1" />
                   <rect x="14" y="3" width="7" height="7" rx="1" />

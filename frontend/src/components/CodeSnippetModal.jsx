@@ -116,16 +116,16 @@ function CodeSnippetModal({ requestState, onClose }) {
                   </button>
                ))}
             </div>
-            <div className="flex-1 bg-[#1e1e1e] relative group flex flex-col">
+            <div className="flex-1 bg-[var(--bg-primary)] relative group flex flex-col">
                <div className="absolute top-4 right-4 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button 
                      onClick={handleCopy}
-                     className="bg-white/10 hover:bg-white/20 text-white rounded p-1.5 flex items-center justify-center backdrop-blur-sm transition-all shadow-lg border border-white/10"
+                     className="bg-[var(--bg-secondary)] hover:bg-[var(--bg-tertiary)] text-[var(--text-primary)] rounded p-1.5 flex items-center justify-center backdrop-blur-sm transition-all shadow-lg border border-[var(--border-color)]"
                   >
-                     {copied ? <Check size={16} className="text-green-400" /> : <Copy size={16} />}
+                     {copied ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
                   </button>
                </div>
-               <pre className="p-4 text-[#d4d4d4] font-mono text-xs overflow-auto h-full whitespace-pre-wrap">
+               <pre className="p-4 text-[var(--text-primary)] font-mono text-xs overflow-auto h-full whitespace-pre-wrap">
                   <code>{snippet}</code>
                </pre>
             </div>

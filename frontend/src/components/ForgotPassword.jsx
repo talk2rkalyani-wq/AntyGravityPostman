@@ -193,7 +193,7 @@ export default function ForgotPassword({ onNavigateLogin }) {
                        checked={isHuman}
                        onChange={(e) => setIsHuman(e.target.checked)}
                      />
-                     <svg className="absolute w-4 h-4 text-[#0F172A] pointer-events-none opacity-0 peer-checked:opacity-100" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
+                     <svg className="absolute w-4 h-4 text-[var(--bg-primary)] pointer-events-none opacity-0 peer-checked:opacity-100" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                      </svg>
                    </div>
