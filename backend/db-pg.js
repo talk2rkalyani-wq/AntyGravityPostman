@@ -61,6 +61,12 @@ async function initDb() {
       username TEXT UNIQUE,
       email TEXT UNIQUE,
       password_hash TEXT,
+      first_name TEXT,
+      last_name TEXT,
+      contact_number TEXT,
+      role TEXT DEFAULT 'Organization Admin',
+      timezone TEXT DEFAULT 'UTC',
+      profile_photo TEXT,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -88,6 +94,15 @@ async function initDb() {
   try {
     await pool.query("ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS type TEXT DEFAULT 'personal';");
     await pool.query("ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS owner_id TEXT REFERENCES users(id);");
+  } catch(e) {}
+
+  try {
+    await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS first_name TEXT;');
+    await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS last_name TEXT;');
+    await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS contact_number TEXT;');
+    await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'Organization Admin';");
+    await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS timezone TEXT DEFAULT 'UTC';");
+    await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_photo TEXT;');
   } catch(e) {}
 
   await pool.query(`
@@ -269,12 +284,12 @@ async function createUser(username, email, passwordHash) {
 
 async function getUserByEmailOrUsername(identifier) {
   if (!pool) return null;
-  const res = await pool.query('SELECT * FROM users WHERE email = $1 OR username = $2', [identifier, identifier]);
+  const res = await pool.query('SELECT id, username, email, password_hash, first_name, last_name, contact_number, role, timezone, profile_photo FROM users WHERE email = $1 OR username = $2', [identifier, identifier]);
   return res.rows[0];
 }
 
 async function getUserById(id) {
-  const res = await pool.query('SELECT id, username, email, created_at FROM users WHERE id = $1', [id]);
+  const res = await pool.query('SELECT id, username, email, first_name, last_name, contact_number, role, timezone, profile_photo, created_at FROM users WHERE id = $1', [id]);
   return res.rows[0];
 }
 
@@ -287,7 +302,7 @@ async function createSession(userId) {
 async function getUserBySession(token) {
   if (!pool) return null;
   const res = await pool.query(`
-    SELECT users.id, users.username, users.email 
+    SELECT users.id, users.username, users.email, users.first_name, users.last_name, users.contact_number, users.role, users.timezone, users.profile_photo 
     FROM users 
     JOIN sessions ON users.id = sessions.user_id 
     WHERE sessions.token = $1
@@ -341,12 +356,32 @@ async function deleteCollection(id) {
   `, [id]);
 }
 
+async function updateUserProfile(id, profileData) {
+  const { first_name, last_name, contact_number, timezone, profile_photo } = profileData;
+  const updates = [];
+  const params = [];
+  let paramIdx = 1;
+
+  if (first_name !== undefined) { updates.push(`first_name = $${paramIdx++}`); params.push(first_name); }
+  if (last_name !== undefined) { updates.push(`last_name = $${paramIdx++}`); params.push(last_name); }
+  if (contact_number !== undefined) { updates.push(`contact_number = $${paramIdx++}`); params.push(contact_number); }
+  if (timezone !== undefined) { updates.push(`timezone = $${paramIdx++}`); params.push(timezone); }
+  if (profile_photo !== undefined) { updates.push(`profile_photo = $${paramIdx++}`); params.push(profile_photo); }
+
+  if (updates.length > 0) {
+    params.push(id);
+    await pool.query(`UPDATE users SET ${updates.join(', ')} WHERE id = $${paramIdx}`, params);
+  }
+
+  return getUserById(id);
+}
+
 module.exports = {
   initDb, saveHistory, getHistory, getCollections, getCollection, createCollection, updateCollection, deleteCollection,
   getEnvironments, getEnvironment, createEnvironment, updateEnvironment, deleteEnvironment,
   getMembers, addMember, updateMemberRole, removeMember, getWorkspaces, addWorkspace,
   updateWorkspace, deleteWorkspace, createUser, getUserByEmailOrUsername, getUserById,
-  createSession, getUserBySession, deleteSession, saveOtp, verifyOtp, verifyResetToken,
+  createSession, getUserBySession, deleteSession, updateUserProfile, saveOtp, verifyOtp, verifyResetToken,
   updatePasswordByEmail, addWorkspaceMember, getWorkspaceMembers, updateWorkspaceMemberRole, 
   removeWorkspaceMember, getWorkspaceMember
 };
